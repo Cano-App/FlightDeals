@@ -109,7 +109,8 @@ def save(watch_id, fields):
 # ---------- Google Flights ----------
 
 def search(w, dep, ret):
-    from fast_flights import FlightQuery, Passengers, create_query, get_flights
+    from fast_flights import (FlightQuery, FlightsNotFound, Passengers, create_query,
+                              fetch_flights_html, get_flights)
 
     airlines = w.get("airlines") or None
     legs = [FlightQuery(date=dep, from_airport=w["from"], to_airport=w["to"], airlines=airlines)]
@@ -127,11 +128,40 @@ def search(w, dep, ret):
     )
     try:
         results = get_flights(q)
-    except Exception as e:  # FlightsNotFound and parser surprises
-        if "no flights" in str(e).lower():
-            return [], q.url()
-        raise
+    except FlightsNotFound:
+        return [], q.url()
+    except TypeError:
+        # The library's parser trips on some routes (blank fields); retry with a forgiving one.
+        results = parse_lenient(fetch_flights_html(q))
     return results, q.url()
+
+
+def parse_lenient(html):
+    """Like fast_flights.parser.parse, but skips itineraries with missing fields."""
+    from fast_flights.model import Airport, CarbonEmission, Flights, SimpleDatetime, SingleFlight
+    from fast_flights.parser import _parse_time
+    from selectolax.lexbor import LexborHTMLParser
+
+    js = LexborHTMLParser(html).css_first(r"script.ds\:1").text()
+    data = js.split("data:", 1)[1].rsplit(",", 1)[0]
+    if data.endswith("errorHasStatus: true"):
+        return []
+    payload = json.loads(data)
+    out = []
+    for group in (payload[3],):
+        for k in (group or [None])[0] or []:
+            try:
+                flight, price = k[0], k[1][0][1]
+                legs = [SingleFlight(
+                    from_airport=Airport(code=f[3], name=f[4]), to_airport=Airport(code=f[6], name=f[5]),
+                    departure=SimpleDatetime(date=tuple(f[20] or (0, 0, 0)), time=_parse_time(f[8])),
+                    arrival=SimpleDatetime(date=tuple(f[21] or (0, 0, 0)), time=_parse_time(f[10])),
+                    duration=f[11] or 0, plane_type=f[17] or "") for f in flight[2]]
+                out.append(Flights(type=flight[0], price=price, airlines=flight[1] or [], flights=legs,
+                                   carbon=CarbonEmission(typical_on_route=0, emission=0)))
+            except (TypeError, IndexError, KeyError):
+                continue
+    return out
 
 
 def summarize(results):
@@ -334,7 +364,7 @@ def check_news(now_ms):
 def demo():
     today = date.today()
     tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
-             ("DEN", "LHR", "economy", 10), ("IAH", "CDG", "economy", 10)]
+             ("DEN", "LHR", "economy", 10), ("LOS", "BKK", "economy", 10), ("LOS", "BKK", "business", 10)]
     for frm, to, cabin, nights in tests:
         w = {"from": frm, "to": to, "cabin": cabin, "airlines": [], "stops": -1}
         dep = (today + timedelta(days=45)).isoformat()
