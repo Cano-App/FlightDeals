@@ -289,8 +289,9 @@ function render(){
   $("sDeal").textContent = watches.filter(w => w.deal).length;
   const last = Math.max(0, ...watches.map(w => w.checked || 0));
   const next = last ? Math.max(0, Math.round((last + CHECK_EVERY - now) / 60e3)) : null;
-  $("sNext").textContent = next == null ? "soon" : next <= 0 ? "now" : next + "m";
-  if (api) $("statusText").textContent = "Live · last price check " + ago(last);
+  const paused = last && now - last > 2 * 3600e3;
+  $("sNext").textContent = paused ? "paused" : next == null ? "soon" : next <= 0 ? "now" : next + "m";
+  if (api) $("statusText").textContent = (paused ? "Price checks paused · last check " : "Live · last price check ") + ago(last);
   document.title = (watches.some(w => w.deal) ? `(${watches.filter(w => w.deal).length}) ` : "") + "FlightDeals";
 
   if (!list.length) {

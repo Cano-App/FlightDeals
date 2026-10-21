@@ -1,8 +1,9 @@
 # GitHub pauses scheduled jobs after 60 days with no commits. This makes one a month.
 name: Keep checker alive
 on:
-  schedule:
-    - cron: '17 6 1 * *'
+  # Paused along with the checker.
+  # schedule:
+  #   - cron: '17 6 1 * *'
   workflow_dispatch:
 permissions:
   contents: write

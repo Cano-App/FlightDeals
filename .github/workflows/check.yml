@@ -1,7 +1,8 @@
 name: Check flight prices
 on:
-  schedule:
-    - cron: '*/15 * * * *'
+  # Paused at Joe's request. To resume, put these two lines back:
+  # schedule:
+  #   - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       demo:
