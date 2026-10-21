@@ -376,6 +376,8 @@ def demo():
             results, url = search(w, dep, ret)
             best, by_air = summarize(results)
             print(frm, to, cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air)
+            if not results:
+                debug_empty(w, dep, ret)
         except Exception as e:
             print(frm, to, cabin, "FAILED", repr(e)[:200])
     for src, url in FEEDS:
@@ -386,6 +388,28 @@ def demo():
             print("feed", src, len(body), "bytes,", body.count(b"<item"), "items")
         except Exception as e:
             print("feed", src, "FAILED", repr(e)[:200])
+
+
+def debug_empty(w, dep, ret):
+    """Print where Google's answer differs from what the parser expects."""
+    import traceback
+    from fast_flights import FlightQuery, create_query, fetch_flights_html, get_flights
+    from selectolax.lexbor import LexborHTMLParser
+    q = create_query(flights=[FlightQuery(date=dep, from_airport=w["from"], to_airport=w["to"]),
+                              FlightQuery(date=ret, from_airport=w["to"], to_airport=w["from"])],
+                     trip="round-trip", seat=w["cabin"], language="en", currency="USD")
+    try:
+        get_flights(q)
+    except Exception:
+        print("  library error:", traceback.format_exc().splitlines()[-3:])
+    html = fetch_flights_html(q)
+    node = LexborHTMLParser(html).css_first(r"script.ds\:1")
+    if not node:
+        print("  no data script; page starts:", html[:300].replace("\n", " "))
+        return
+    payload = json.loads(node.text().split("data:", 1)[1].rsplit(",", 1)[0])
+    for i, part in enumerate(payload[:10] if isinstance(payload, list) else []):
+        print(f"  payload[{i}]:", json.dumps(part)[:160])
 
 
 def main():
