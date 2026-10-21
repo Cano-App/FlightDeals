@@ -33,8 +33,8 @@ ANY_SLOTS = 13      # "anytime" watches cover a departure every 2 weeks for ~6 m
 FRESH_MS = 36 * 3600e3  # cached prices older than this are dropped
 HIST_LEN = 60
 CABINS = {"economy", "premium-economy", "business", "first"}
-FEEDS = [("Secret Flying", "https://www.secretflying.com/feed/"),
-         ("The Flight Deal", "https://www.theflightdeal.com/feed/"),
+# Secret Flying blocks robots, so it isn't here.
+FEEDS = [("The Flight Deal", "https://www.theflightdeal.com/feed/"),
          ("Fly4free", "https://www.fly4free.com/feed/")]
 NEWS_WORDS = ["Lagos", "Nigeria", "Houston", "Denver", "San Antonio", "Texas", "Colorado",
               "IAH", "Hobby"]
@@ -334,7 +334,7 @@ def check_news(now_ms):
 def demo():
     today = date.today()
     tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
-             ("DEN", "LON", "economy", 10), ("IAH", "PAR", "economy", 10)]
+             ("DEN", "LHR", "economy", 10), ("IAH", "CDG", "economy", 10)]
     for frm, to, cabin, nights in tests:
         w = {"from": frm, "to": to, "cabin": cabin, "airlines": [], "stops": -1}
         dep = (today + timedelta(days=45)).isoformat()

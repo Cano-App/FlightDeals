@@ -90,6 +90,29 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10p
 .toast{position:fixed;left:16px;right:16px;top:calc(12px + env(safe-area-inset-top));max-width:520px;margin:0 auto;background:var(--ink);color:var(--bg);
   border-radius:14px;padding:12px 14px;font-weight:600;z-index:20;transform:translateY(-150%);transition:transform .3s}
 .toast.show{transform:none}
+.sec{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 2px 8px}
+.board{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:8px;margin-bottom:6px;box-shadow:var(--shadow);overflow-x:auto}
+.board table{border-collapse:separate;border-spacing:4px;width:100%;table-layout:fixed;min-width:330px}
+.board th{font-size:10.5px;color:var(--muted);font-weight:700;text-align:center;padding:2px 0;overflow-wrap:anywhere;line-height:1.15}
+.board th.row{text-align:left;width:62px}
+.board td{background:var(--chip);border-radius:10px;padding:6px 2px;text-align:center;font-size:12px;line-height:1.25;cursor:pointer;font-variant-numeric:tabular-nums}
+.board td.none{cursor:default;opacity:.35}
+.board td.hot{background:var(--goodbg);color:var(--good);box-shadow:inset 0 0 0 1.5px var(--good)}
+.board td.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.board td b{display:block;font-size:13px}
+.board td small{color:var(--muted)}
+.board td.hot small{color:var(--good)}
+.legend{font-size:12px;color:var(--muted);margin:0 4px 6px}
+.news{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:6px;box-shadow:var(--shadow);overflow:hidden}
+.news a{display:block;padding:11px 14px;border-top:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px}
+.news a:first-child{border-top:0}
+.news small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.badge.new{background:var(--bad);color:#fff;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.55}}
+.seg{display:flex;background:var(--chip);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:700;padding:8px;border-radius:10px;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.routebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 10px;font-size:14px}
 .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 a{color:var(--accent)}
 </style>
@@ -108,6 +131,17 @@ a{color:var(--accent)}
     <div class="stat"><b id="sNext">–</b><small>next check</small></div>
   </div>
 
+
+  <div id="boardWrap" hidden>
+    <div class="sec">Deal board</div>
+    <div class="board" id="board"></div>
+    <div class="legend">Best round-trip price found · <b style="color:var(--good)">green</b> = deal right now · tap a square to see it</div>
+  </div>
+  <div id="newsWrap" hidden>
+    <div class="sec">🔥 Hot off the press</div>
+    <div class="news" id="news"></div>
+    <div class="legend">Mistake fares and flash sales from deal sites that mention your cities.</div>
+  </div>
   <div class="alerts" id="alertsBox">
     <h3>🔔 Get deal alerts on your phone</h3>
     <p>Install the free <b>ntfy</b> app, then subscribe to <b id="topicName"></b>. Every deal on this page pings you, even with the page closed.</p>
@@ -117,7 +151,8 @@ a{color:var(--accent)}
       <button class="btn ghost" id="browserNotif">Alerts in this browser</button>
     </div>
   </div>
-
+  <div class="sec">Your watches</div>
+  <div class="routebar" id="routeBar" hidden><span id="routeText"></span><button class="btn ghost small" id="routeClear">Show all</button></div>
   <div class="filters" id="cabinFilters"></div>
   <div class="toolbar">
     <select id="airFilter" aria-label="Airline"><option value="">All airlines</option></select>
@@ -132,7 +167,7 @@ a{color:var(--accent)}
   <div id="list"><div class="empty">Loading watches…</div></div>
 
   <div class="foot">Prices from Google Flights, which lists Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates and most other airlines.
-    Checked automatically about every 30 minutes. Prices in USD, can change before you book.</div>
+    Checked automatically about every 15 minutes. Prices in USD, can change before you book.</div>
 </div>
 
 <button class="btn primary fab" id="addBtn">＋ Watch a route</button>
@@ -145,17 +180,22 @@ a{color:var(--accent)}
       <div><label for="fTo">To</label><input id="fTo" list="airports" maxlength="3" placeholder="CDG" autocapitalize="characters" autocomplete="off"></div>
     </div>
     <datalist id="airports"></datalist>
-    <div class="grid2">
-      <div><label for="fDep">Depart</label><input id="fDep" type="date"></div>
-      <div><label for="fRet">Return (blank = one-way)</label><input id="fRet" type="date"></div>
+    <label>When</label>
+    <div class="seg" id="modeSeg"><button type="button" class="on" data-m="any">Anytime (6 months)</button><button type="button" data-m="exact">Exact dates</button></div>
+    <div id="anyBox">
+      <label for="fNights">Trip length</label>
+      <select id="fNights"><option value="7">1 week</option><option value="10" selected>10 days</option><option value="14">2 weeks</option><option value="21">3 weeks</option><option value="0">One-way</option></select>
     </div>
-    <div class="grid2">
-      <div><label for="fCabin">Cabin</label>
-        <select id="fCabin"><option value="economy">Economy</option><option value="premium-economy">Premium economy</option>
-          <option value="business" selected>Business</option><option value="first">First</option></select></div>
-      <div><label for="fFlex">Flexible dates</label>
-        <select id="fFlex"><option value="0">Exact dates</option><option value="1">± 1 day</option><option value="2">± 2 days</option><option value="3">± 3 days</option></select></div>
+    <div id="exactBox" hidden>
+      <div class="grid2">
+        <div><label for="fDep">Depart</label><input id="fDep" type="date"></div>
+        <div><label for="fRet">Return (blank = one-way)</label><input id="fRet" type="date"></div>
+      </div>
+      <label for="fFlex">Flexible dates</label>
+      <select id="fFlex"><option value="0">Exact dates</option><option value="1">± 1 day</option><option value="2">± 2 days</option><option value="3">± 3 days</option></select>
     </div>
+    <label>Cabin (pick one or more)</label>
+    <div class="airpick" id="cabinPick"><button type="button" class="chip on" data-c="economy">Economy</button><button type="button" class="chip" data-c="premium-economy">Premium</button><button type="button" class="chip on" data-c="business">Business</button><button type="button" class="chip" data-c="first">First</button></div>
     <div class="grid2">
       <div><label for="fStops">Stops</label>
         <select id="fStops"><option value="-1">Any</option><option value="0">Nonstop only</option><option value="1">1 stop max</option><option value="2">2 stops max</option></select></div>
@@ -184,7 +224,10 @@ const CONFIG = { apiKey:"AIzaSyAZHx61X7Eh9rVL62N9juocoQRZbFPS4DU", authDomain:"b
   messagingSenderId:"665533055457", appId:"1:665533055457:web:d093f201a5f95c7efad2a0" };
 const COLL = "flightwatches";
 const TOPIC = "cano-flightdeals-x7k2";
-const CHECK_EVERY = 30 * 60e3;
+const NEWS = "flightnews";
+const CHECK_EVERY = 15 * 60e3;
+const CITY = {LOS:"Lagos",IAH:"Houston",HOU:"Houston",DEN:"Denver",SAT:"San Antonio",CDG:"Paris",ORY:"Paris",PAR:"Paris",LHR:"London",LGW:"London",LON:"London",BKK:"Bangkok"};
+const city = c => CITY[c] || c;
 
 const AIRLINES = [["DL","Delta"],["UA","United"],["AA","American"],["WN","Southwest"],["AS","Alaska"],["B6","JetBlue"],
   ["AF","Air France"],["KL","KLM"],["LH","Lufthansa"],["BA","British Airways"],["VS","Virgin Atlantic"],["IB","Iberia"],
@@ -200,7 +243,7 @@ const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == 
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 const airName = c => (AIRLINES.find(a => a[0] === c) || [c, c])[1];
 
-let watches = [], api = null, firstSnap = true;
+let watches = [], news = [], api = null, firstSnap = true, routeF = "", dateMode = "any";
 let cabinF = store.get("cabinF", ""), airF = store.get("airF", ""), sortBy = store.get("sortBy", "deal");
 const seen = store.get("seenDeals", {});
 
@@ -229,7 +272,10 @@ function spark(hist){
 // ---------- rendering ----------
 function render(){
   const now = Date.now();
-  let list = watches.filter(w => (!cabinF || w.cabin === cabinF) &&
+  renderBoard();
+  $("routeBar").hidden = !routeF;
+  if (routeF) { const [f, t] = routeF.split("-"); $("routeText").innerHTML = `Showing <b>${esc(city(f))} → ${esc(city(t))}</b>`; }
+  let list = watches.filter(w => (!routeF || w.from + "-" + w.to === routeF) && (!cabinF || w.cabin === cabinF) &&
     (!airF || (w.airlines || []).includes(airF) || Object.keys(w.byAir || {}).some(n => n.includes(airName(airF)))));
   const drop = w => { const u = usual(w); return u && w.price ? (u - w.price) / u : 0; };
   const sorters = {
@@ -253,17 +299,20 @@ function render(){
   }
   $("list").innerHTML = list.map(w => {
     const u = usual(w), b = w.best || {};
-    const when = fmtDate(w.depart) + (w.ret ? " – " + fmtDate(w.ret) : " · one-way") + (w.flex ? ` (±${w.flex}d)` : "");
+    const when = w.any ? "Anytime · " + (w.nights ? w.nights + " days" : "one-way")
+      : fmtDate(w.depart) + (w.ret ? " – " + fmtDate(w.ret) : " · one-way") + (w.flex ? ` (±${w.flex}d)` : "");
+    const fresh = w.deal && w.dealAt && now - w.dealAt < 3 * 3600e3;
     const airs = Object.entries(w.byAir || {}).slice(0, 6).map(([n, p]) => `<span class="air">${esc(n)} <b>${money(p)}</b></span>`).join("");
     const picked = (w.airlines || []).map(airName).join(", ");
     return `<div class="card ${w.deal ? "deal" : ""}" data-id="${esc(w.id)}">
       <div class="top">
-        <div><div class="route">${esc(w.from)}<span class="arrow">${w.ret ? "⇄" : "→"}</span>${esc(w.to)}</div>
+        <div><div class="route">${esc(w.from)}<span class="arrow">${w.ret || w.nights ? "⇄" : "→"}</span>${esc(w.to)}</div><div class="meta">${esc(city(w.from))} → ${esc(city(w.to))}</div>
           <div class="meta">${esc(when)} · ${w.adults > 1 ? w.adults + " travelers" : "1 traveler"}</div></div>
         <div class="price">${w.price ? `<b>${money(w.price)}</b><small>${w.low && w.low < w.price ? "low " + money(w.low) : "lowest seen"}</small>` : `<small>${w.checked ? "" : "first check soon"}</small>`}</div>
       </div>
       <div class="badges">
         <span class="badge cabin">${esc(CABINS[w.cabin] || w.cabin)}</span>
+        ${fresh ? `<span class="badge new">NEW</span>` : ""}
         ${w.deal ? `<span class="badge good">🔥 ${esc(w.deal)}</span>` : ""}
         ${u && w.price && w.price < u && !w.deal ? `<span class="badge">${Math.round((u - w.price) / u * 100)}% under usual</span>` : ""}
         ${w.target ? `<span class="badge">target ${money(w.target)}</span>` : ""}
@@ -282,6 +331,34 @@ function render(){
         <button class="btn ghost small" data-act="del">Remove</button>
       </div></div>`;
   }).join("");
+}
+
+function renderBoard(){
+  const froms = [...new Set(watches.map(w => w.from))], tos = [...new Set(watches.map(w => w.to))];
+  $("boardWrap").hidden = watches.length < 3;
+  if ($("boardWrap").hidden) return;
+  // Keep the home cities as rows: airports that are mostly departure points.
+  const score = c => watches.filter(w => w.from === c).length - watches.filter(w => w.to === c).length;
+  const rows = [...froms].sort((a, b) => score(b) - score(a) || city(a).localeCompare(city(b)));
+  const cols = [...new Set([...tos, ...froms])].filter(c => tos.includes(c)).sort((a, b) => city(a).localeCompare(city(b)));
+  const cell = (f, t) => {
+    if (f === t) return `<td class="none">–</td>`;
+    const ws = watches.filter(w => w.from === f && w.to === t);
+    if (!ws.length) return `<td class="none">·</td>`;
+    const best = c => { const p = ws.filter(w => w.cabin === c && w.price).map(w => w.price); return p.length ? Math.min(...p) : 0; };
+    const e = best("economy") || best("premium-economy"), b = best("business") || best("first");
+    const hot = ws.some(w => w.deal);
+    const k = f + "-" + t;
+    const short = n => n >= 10000 ? "$" + Math.round(n / 1000) + "k" : n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : "$" + n;
+    return `<td class="${hot ? "hot" : ""} ${routeF === k ? "sel" : ""}" data-r="${esc(k)}">${e ? `<b>${short(e)}</b>` : "<b>…</b>"}<small>${b ? "biz " + short(b) : ""}</small></td>`;
+  };
+  $("board").innerHTML = `<table><tr><th class="row">From ↓</th>${cols.map(c => `<th>${esc(city(c))}</th>`).join("")}</tr>` +
+    rows.map(f => `<tr><th class="row">${esc(city(f))}</th>${cols.map(t => cell(f, t)).join("")}</tr>`).join("") + `</table>`;
+}
+
+function renderNews(){
+  $("newsWrap").hidden = !news.length;
+  $("news").innerHTML = news.slice(0, 8).map(n => `<a href="${esc(n.link)}" target="_blank" rel="noopener">${Date.now() - n.t < 864e5 ? '<span class="badge new">NEW</span> ' : ""}${esc(n.title)}<small>${esc(n.src)} · ${ago(n.t)}</small></a>`).join("");
 }
 
 function noticeDeals(){
@@ -311,6 +388,9 @@ async function connect(){
     update: (id, data) => fs.updateDoc(fs.doc(db, COLL, id), data),
     remove: id => fs.deleteDoc(fs.doc(db, COLL, id)),
   };
+  fs.onSnapshot(fs.query(fs.collection(db, NEWS), fs.orderBy("t", "desc"), fs.limit(12)), snap => {
+    news = snap.docs.map(d => d.data()); renderNews();
+  }, err => console.warn("news", err));
   fs.onSnapshot(col, snap => {
     watches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     $("dot").classList.remove("off");
@@ -336,24 +416,26 @@ function closeSheet(){ $("sheet").classList.remove("open"); }
 
 async function saveWatch(){
   const from = $("fFrom").value.trim().toUpperCase().slice(0, 3), to = $("fTo").value.trim().toUpperCase().slice(0, 3);
-  const depart = $("fDep").value, ret = $("fRet").value;
+  const any = dateMode === "any", depart = any ? "" : $("fDep").value, ret = any ? "" : $("fRet").value;
+  const cabins = [...document.querySelectorAll("#cabinPick .chip.on")].map(c => c.dataset.c);
   const err = m => { $("formErr").textContent = m; };
   if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) return err("Use 3-letter airport codes, like JFK and CDG.");
   if (from === to) return err("From and To are the same.");
-  if (!depart || depart <= new Date().toISOString().slice(0, 10)) return err("Pick a departure date in the future.");
+  if (!cabins.length) return err("Pick at least one cabin.");
+  if (!any && (!depart || depart <= new Date().toISOString().slice(0, 10))) return err("Pick a departure date in the future.");
   if (ret && ret < depart) return err("Return must be after departure.");
   const name = $("fBy").value.trim().slice(0, 30);
   store.set("name", name);
   const doc = {
-    from, to, depart, ret: ret || "", flex: +$("fFlex").value, cabin: $("fCabin").value,
+    from, to, depart, ret: ret || "", flex: any ? 0 : +$("fFlex").value, any, nights: any ? +$("fNights").value : 0,
     airlines: [...document.querySelectorAll("#airPick .chip.on")].map(c => c.dataset.code),
     stops: +$("fStops").value, target: Math.max(0, Math.round(+$("fTarget").value || 0)),
     adults: +$("fAdults").value, by: name, created: Date.now(),
   };
   $("saveBtn").disabled = true;
   try {
-    await api.add(doc);
-    closeSheet(); toast("Watching " + from + " → " + to + ". First prices within ~30 min.");
+    for (const cabin of cabins) await api.add({ ...doc, cabin });
+    closeSheet(); toast("Watching " + from + " → " + to + ". First prices within ~15 min.");
     $("fFrom").value = $("fTo").value = $("fTarget").value = "";
   } catch (e) { err("Couldn't save: " + (e.code || e.message)); }
   finally { $("saveBtn").disabled = false; }
@@ -364,7 +446,13 @@ $("topicName").textContent = TOPIC;
 $("ntfyLink").href = "https://ntfy.sh/" + TOPIC;
 $("airports").innerHTML = AIRPORTS.map(a => `<option value="${a.slice(0, 3)}">${esc(a.slice(4))}</option>`).join("");
 $("airPick").innerHTML = AIRLINES.map(([c, n]) => `<button type="button" class="chip" data-code="${c}">${esc(n)}</button>`).join("");
-$("airPick").onclick = e => e.target.closest(".chip")?.classList.toggle("on");
+$("airPick").onclick = $("cabinPick").onclick = e => e.target.closest(".chip")?.classList.toggle("on");
+$("modeSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; dateMode = b.dataset.m;
+  for (const x of $("modeSeg").children) x.classList.toggle("on", x === b);
+  $("anyBox").hidden = dateMode !== "any"; $("exactBox").hidden = dateMode === "any"; };
+$("board").onclick = e => { const td = e.target.closest("td[data-r]"); if (!td) return;
+  routeF = routeF === td.dataset.r ? "" : td.dataset.r; render(); if (routeF) $("routeBar").scrollIntoView({ behavior: "smooth", block: "start" }); };
+$("routeClear").onclick = () => { routeF = ""; render(); };
 $("airFilter").innerHTML += AIRLINES.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
 $("airFilter").value = airF; $("sortBy").value = sortBy;
 
