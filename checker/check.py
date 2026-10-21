@@ -364,7 +364,12 @@ def main():
         check_news(now_ms)
     except Exception as e:
         print("news failed:", repr(e)[:300])
-    watches = load_watches()
+    try:
+        watches = load_watches()
+    except urllib.error.HTTPError as e:
+        # 403 until the Firestore rules are published; don't fail the job over it.
+        print("couldn't read watches:", e.code, e.read()[:200])
+        return
     # Least recently checked first, so a big list still rotates fairly.
     watches.sort(key=lambda w: w.get("checked") or 0)
     print(f"{len(watches)} watches")
