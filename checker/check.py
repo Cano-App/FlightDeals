@@ -148,10 +148,13 @@ def parse_lenient(html):
         return []
     payload = json.loads(data)
     out = []
-    for group in (payload[3],):
+    # payload[3] holds "other flights"; on some routes Google puts them all under payload[2] ("best").
+    for group in (payload[2], payload[3]):
         for k in (group or [None])[0] or []:
             try:
                 flight, price = k[0], k[1][0][1]
+                if not isinstance(price, int) or price <= 0:
+                    continue
                 legs = [SingleFlight(
                     from_airport=Airport(code=f[3], name=f[4]), to_airport=Airport(code=f[6], name=f[5]),
                     departure=SimpleDatetime(date=tuple(f[20] or (0, 0, 0)), time=_parse_time(f[8])),
