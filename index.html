@@ -320,7 +320,7 @@ function render(){
         ${picked ? `<span class="badge">${esc(picked)}</span>` : ""}
         ${w.err ? `<span class="badge err">${esc(w.err)}</span>` : ""}
       </div>
-      ${b.price ? `<div class="best">Best: <b>${esc(b.air)}</b> · ${b.stops ? b.stops + " stop" + (b.stops > 1 ? "s" : "") : "nonstop"}${b.dur ? " · " + dur(b.dur) : ""}${b.date ? " · " + esc(b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate)) : ""}</div>` : ""}
+      ${b.price ? `<div class="best">Best: <b>${esc(b.air)}</b> · ${b.stops < 0 ? "airline shown on Google" : b.stops ? b.stops + " stop" + (b.stops > 1 ? "s" : "") : "nonstop"}${b.dur ? " · " + dur(b.dur) : ""}${b.date ? " · " + esc(b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate)) : ""}</div>` : ""}
       ${spark(w.hist)}
       ${airs ? `<div class="airs">${airs}</div>` : ""}
       <div class="meta" style="margin-bottom:10px">Checked ${ago(w.checked)}${w.by ? " · added by " + esc(w.by) : ""}${u ? " · usual " + money(u) : ""}</div>

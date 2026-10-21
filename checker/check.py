@@ -309,7 +309,7 @@ def check_watch(w, budget, now_ms, today):
         if best:
             leg = best.flights
             cal[key] = {"t": now_ms, "p": best.price, "air": ", ".join(best.airlines[:3]),
-                        "stops": max(0, len(leg) - 1), "dur": sum(s.duration or 0 for s in leg),
+                        "stops": len(leg) - 1 if leg else -1, "dur": sum(s.duration or 0 for s in leg),
                         "url": url, "by": dict(sorted(air.items(), key=lambda kv: kv[1])[:6])}
         else:
             cal.pop(key, None)
