@@ -190,8 +190,7 @@ def nearby_dates(node):
     if not found:
         return []
     price, dep, ret = min(found)
-    label = "Nearby dates " + dep[5:] + (" → " + ret[5:] if ret else "")
-    return [Flights(type="nearby", price=price, airlines=[label], flights=[],
+    return [Flights(type=f"nearby|{dep}|{ret}", price=price, airlines=["Nearby dates"], flights=[],
                     carbon=CarbonEmission(typical_on_route=0, emission=0))]
 
 
@@ -308,7 +307,8 @@ def check_watch(w, budget, now_ms, today):
         best, air = summarize(results)
         if best:
             leg = best.flights
-            cal[key] = {"t": now_ms, "p": best.price, "air": ", ".join(best.airlines[:3]),
+            when = best.type.split("|")[1:] if str(best.type).startswith("nearby|") else [dep, ret]
+            cal[key] = {"t": now_ms, "p": best.price, "when": when, "air": ", ".join(best.airlines[:3]),
                         "stops": len(leg) - 1 if leg else -1, "dur": sum(s.duration or 0 for s in leg),
                         "url": url, "by": dict(sorted(air.items(), key=lambda kv: kv[1])[:6])}
         else:
@@ -325,6 +325,7 @@ def check_watch(w, budget, now_ms, today):
     key, c = min(cal.items(), key=lambda kv: kv[1]["p"])
     dep, ret = key.split("|")
     price = c["p"]
+    dep, ret = c.get("when") or (dep, ret)
     best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"],
             "stops": c["stops"], "dur": c["dur"], "url": c["url"]}
     by_air = {}
