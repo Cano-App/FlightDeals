@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FlightDeals</title>
+<meta name="description" content="Shared flight deal alerts by route, cabin and airline.">
+<meta name="theme-color" content="#0b1020">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
+<style>
+:root{
+  --bg:#f4f6fb;--bg2:#e9edf7;--card:#ffffff;--ink:#0d1324;--muted:#5d6782;--line:#dfe4ef;
+  --accent:#3b6cff;--accent2:#7a4dff;--good:#0f9d63;--goodbg:#e2f7ee;--warn:#c77700;--bad:#d23b3b;
+  --chip:#eef1f8;--shadow:0 6px 24px rgba(20,30,60,.08);
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0b1020;--bg2:#121a33;--card:#141c34;--ink:#eef2ff;--muted:#97a1c2;--line:#26304f;
+  --accent:#6d8dff;--accent2:#a67cff;--good:#34d399;--goodbg:#0f2f27;--warn:#fbbf24;--bad:#f87171;
+  --chip:#1c2645;--shadow:0 8px 30px rgba(0,0,0,.35);
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:radial-gradient(1200px 500px at 80% -100px,color-mix(in srgb,var(--accent2) 22%,transparent),transparent),var(--bg);
+  color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow-x:hidden}
+.wrap{max-width:760px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
+.logo{font-weight:800;font-size:24px;letter-spacing:-.5px;flex:1;min-width:0}
+.logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.iconbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;height:40px;padding:0 12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:-6px 0 14px;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 var(--good);animation:pulse 2s infinite}
+.dot.off{background:var(--bad);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;box-shadow:var(--shadow)}
+.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:12px}
+.alerts{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--card)),color-mix(in srgb,var(--accent2) 16%,var(--card)));
+  border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:14px}
+.alerts h3{margin:0 0 4px;font-size:16px}
+.alerts p{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.alerts .row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:10px 14px;font:inherit;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:7px 10px;font-size:13px;border-radius:10px}
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.toolbar{display:flex;gap:8px;margin-bottom:14px}
+.toolbar select,.toolbar input{flex:1;min-width:0}
+input,select{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card.deal{border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+.card.deal::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--good),var(--accent))}
+.card.flash{animation:flash 1.2s ease}
+@keyframes flash{0%{transform:scale(1)}30%{transform:scale(1.015);box-shadow:0 0 0 3px var(--good)}100%{transform:scale(1)}}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.route{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.route .arrow{color:var(--muted);font-weight:500;margin:0 4px}
+.meta{font-size:13px;color:var(--muted);margin-top:2px}
+.price{text-align:right;flex:none}
+.price b{font-size:28px;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.price small{display:block;font-size:12px;color:var(--muted)}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px}
+.badge{font-size:12px;font-weight:700;border-radius:999px;padding:4px 9px;background:var(--chip);color:var(--muted)}
+.badge.cabin{background:color-mix(in srgb,var(--accent) 18%,var(--card));color:var(--accent)}
+.badge.good{background:var(--goodbg);color:var(--good)}
+.badge.err{background:color-mix(in srgb,var(--bad) 15%,var(--card));color:var(--bad)}
+.best{font-size:14px;margin:6px 0}
+.spark{display:block;width:100%;height:44px;margin:4px 0}
+.airs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.air{font-size:12px;background:var(--chip);border-radius:8px;padding:4px 8px;font-variant-numeric:tabular-nums}
+.air b{font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));z-index:5;
+  box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 45%,transparent);padding:14px 22px;border-radius:999px;font-size:16px}
+.sheet{position:fixed;inset:0;background:rgba(5,8,20,.55);display:none;z-index:10;align-items:flex-end;justify-content:center}
+.sheet.open{display:flex}
+.panel{background:var(--card);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.panel h2{margin:0 0 12px;font-size:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0 4px}
+.airpick{display:flex;flex-wrap:wrap;gap:6px}
+.airpick .chip{font-size:13px;padding:6px 10px}
+.formerr{color:var(--bad);font-size:14px;min-height:20px;margin-top:8px}
+.toast{position:fixed;left:16px;right:16px;top:calc(12px + env(safe-area-inset-top));max-width:520px;margin:0 auto;background:var(--ink);color:var(--bg);
+  border-radius:14px;padding:12px 14px;font-weight:600;z-index:20;transform:translateY(-150%);transition:transform .3s}
+.toast.show{transform:none}
+.foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">✈️ <span>FlightDeals</span></div>
+    <button class="iconbtn" id="shareBtn">Share</button>
+  </header>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Connecting…</span></div>
+
+  <div class="stats">
+    <div class="stat"><b id="sWatch">–</b><small>watching</small></div>
+    <div class="stat"><b id="sDeal">–</b><small>deals now</small></div>
+    <div class="stat"><b id="sNext">–</b><small>next check</small></div>
+  </div>
+
+  <div class="alerts" id="alertsBox">
+    <h3>🔔 Get deal alerts on your phone</h3>
+    <p>Install the free <b>ntfy</b> app, then subscribe to <b id="topicName"></b>. Every deal on this page pings you, even with the page closed.</p>
+    <div class="row">
+      <a class="btn primary" id="ntfyLink" target="_blank" rel="noopener">Open alert channel</a>
+      <button class="btn ghost" id="copyTopic">Copy channel name</button>
+      <button class="btn ghost" id="browserNotif">Alerts in this browser</button>
+    </div>
+  </div>
+
+  <div class="filters" id="cabinFilters"></div>
+  <div class="toolbar">
+    <select id="airFilter" aria-label="Airline"><option value="">All airlines</option></select>
+    <select id="sortBy" aria-label="Sort">
+      <option value="deal">Deals first</option>
+      <option value="price">Lowest price</option>
+      <option value="drop">Biggest drop</option>
+      <option value="new">Newest</option>
+    </select>
+  </div>
+
+  <div id="list"><div class="empty">Loading watches…</div></div>
+
+  <div class="foot">Prices from Google Flights, which lists Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates and most other airlines.
+    Checked automatically about every 30 minutes. Prices in USD, can change before you book.</div>
+</div>
+
+<button class="btn primary fab" id="addBtn">＋ Watch a route</button>
+
+<div class="sheet" id="sheet">
+  <div class="panel" role="dialog" aria-label="Watch a route">
+    <h2>Watch a route</h2>
+    <div class="grid2">
+      <div><label for="fFrom">From (airport code)</label><input id="fFrom" list="airports" maxlength="3" placeholder="JFK" autocapitalize="characters" autocomplete="off"></div>
+      <div><label for="fTo">To</label><input id="fTo" list="airports" maxlength="3" placeholder="CDG" autocapitalize="characters" autocomplete="off"></div>
+    </div>
+    <datalist id="airports"></datalist>
+    <div class="grid2">
+      <div><label for="fDep">Depart</label><input id="fDep" type="date"></div>
+      <div><label for="fRet">Return (blank = one-way)</label><input id="fRet" type="date"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="fCabin">Cabin</label>
+        <select id="fCabin"><option value="economy">Economy</option><option value="premium-economy">Premium economy</option>
+          <option value="business" selected>Business</option><option value="first">First</option></select></div>
+      <div><label for="fFlex">Flexible dates</label>
+        <select id="fFlex"><option value="0">Exact dates</option><option value="1">± 1 day</option><option value="2">± 2 days</option><option value="3">± 3 days</option></select></div>
+    </div>
+    <div class="grid2">
+      <div><label for="fStops">Stops</label>
+        <select id="fStops"><option value="-1">Any</option><option value="0">Nonstop only</option><option value="1">1 stop max</option><option value="2">2 stops max</option></select></div>
+      <div><label for="fAdults">Travelers</label>
+        <select id="fAdults"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+    </div>
+    <label for="fTarget">Alert me under (USD total, optional)</label>
+    <input id="fTarget" type="number" inputmode="numeric" min="0" placeholder="e.g. 2500">
+    <label>Airlines (none picked = all)</label>
+    <div class="airpick" id="airPick"></div>
+    <label for="fBy">Your name</label>
+    <input id="fBy" maxlength="30" placeholder="Joe">
+    <div class="formerr" id="formErr"></div>
+    <div class="actions" style="margin-top:8px">
+      <button class="btn primary" id="saveBtn">Start watching</button>
+      <button class="btn ghost" id="cancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+const CONFIG = { apiKey:"AIzaSyAZHx61X7Eh9rVL62N9juocoQRZbFPS4DU", authDomain:"bananagrams-4b5f0.firebaseapp.com",
+  projectId:"bananagrams-4b5f0", storageBucket:"bananagrams-4b5f0.firebasestorage.app",
+  messagingSenderId:"665533055457", appId:"1:665533055457:web:d093f201a5f95c7efad2a0" };
+const COLL = "flightwatches";
+const TOPIC = "cano-flightdeals-x7k2";
+const CHECK_EVERY = 30 * 60e3;
+
+const AIRLINES = [["DL","Delta"],["UA","United"],["AA","American"],["WN","Southwest"],["AS","Alaska"],["B6","JetBlue"],
+  ["AF","Air France"],["KL","KLM"],["LH","Lufthansa"],["BA","British Airways"],["VS","Virgin Atlantic"],["IB","Iberia"],
+  ["LX","Swiss"],["TK","Turkish"],["QR","Qatar"],["EK","Emirates"],["EY","Etihad"],["TG","Thai"],["SQ","Singapore"],
+  ["CX","Cathay Pacific"],["JL","JAL"],["NH","ANA"],["KE","Korean Air"],["QF","Qantas"],["AC","Air Canada"],["AM","Aeromexico"],["LA","LATAM"]];
+const AIRPORTS = "ATL Atlanta,BOS Boston,ORD Chicago,DFW Dallas,DEN Denver,DTW Detroit,IAH Houston,LAS Las Vegas,LAX Los Angeles,MIA Miami,MSP Minneapolis,JFK New York JFK,EWR Newark,LGA New York LGA,MCO Orlando,PHL Philadelphia,PHX Phoenix,SFO San Francisco,SEA Seattle,IAD Washington Dulles,DCA Washington National,SAN San Diego,FLL Fort Lauderdale,HNL Honolulu,YYZ Toronto,YVR Vancouver,MEX Mexico City,CUN Cancun,LHR London Heathrow,LGW London Gatwick,CDG Paris,AMS Amsterdam,FRA Frankfurt,MUC Munich,ZRH Zurich,MAD Madrid,BCN Barcelona,FCO Rome,MXP Milan,LIS Lisbon,ATH Athens,IST Istanbul,DUB Dublin,DOH Doha,DXB Dubai,AUH Abu Dhabi,BKK Bangkok,HKT Phuket,SIN Singapore,HKG Hong Kong,NRT Tokyo Narita,HND Tokyo Haneda,ICN Seoul,SYD Sydney,MEL Melbourne,DEL Delhi,BOM Mumbai,JNB Johannesburg,CPT Cape Town,GRU Sao Paulo,EZE Buenos Aires,LIM Lima,BOG Bogota".split(",");
+const CABINS = {"economy":"Economy","premium-economy":"Premium","business":"Business","first":"First"};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + Math.round(n).toLocaleString("en-US");
+const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const airName = c => (AIRLINES.find(a => a[0] === c) || [c, c])[1];
+
+let watches = [], api = null, firstSnap = true;
+let cabinF = store.get("cabinF", ""), airF = store.get("airF", ""), sortBy = store.get("sortBy", "deal");
+const seen = store.get("seenDeals", {});
+
+// ---------- small UI helpers ----------
+function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3500); }
+function ago(ms){ if (!ms) return "never"; const m = Math.round((Date.now() - ms) / 60e3);
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; }
+function fmtDate(s){ if (!s) return ""; const d = new Date(s + "T12:00:00"); return d.toLocaleDateString("en-US", {month:"short", day:"numeric"}); }
+function dur(min){ return min ? Math.floor(min / 60) + "h " + (min % 60 ? (min % 60) + "m" : "") : ""; }
+function usual(w){ const p = (w.hist || []).map(h => h.p).filter(Boolean); if (p.length < 3) return 0;
+  const s = [...p].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; }
+
+function spark(hist){
+  const pts = (hist || []).filter(h => h.p).slice(-40);
+  if (pts.length < 2) return "";
+  const ps = pts.map(h => h.p), lo = Math.min(...ps), hi = Math.max(...ps), W = 300, H = 44, pad = 4;
+  const x = i => pad + i * (W - 2 * pad) / (pts.length - 1), y = p => hi === lo ? H / 2 : pad + (hi - p) * (H - 2 * pad) / (hi - lo);
+  const d = ps.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p).toFixed(1)).join(" ");
+  const li = ps.lastIndexOf(lo);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="price history">
+    <path d="${d} L${x(ps.length - 1)} ${H} L${x(0)} ${H}Z" fill="var(--accent)" opacity=".10"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <circle cx="${x(li)}" cy="${y(lo)}" r="3" fill="var(--good)"/></svg>`;
+}
+
+// ---------- rendering ----------
+function render(){
+  const now = Date.now();
+  let list = watches.filter(w => (!cabinF || w.cabin === cabinF) &&
+    (!airF || (w.airlines || []).includes(airF) || Object.keys(w.byAir || {}).some(n => n.includes(airName(airF)))));
+  const drop = w => { const u = usual(w); return u && w.price ? (u - w.price) / u : 0; };
+  const sorters = {
+    deal: (a, b) => (!!b.deal - !!a.deal) || drop(b) - drop(a) || (a.price || 1e9) - (b.price || 1e9),
+    price: (a, b) => (a.price || 1e9) - (b.price || 1e9),
+    drop: (a, b) => drop(b) - drop(a),
+    new: (a, b) => (b.created || 0) - (a.created || 0) };
+  list.sort(sorters[sortBy] || sorters.deal);
+
+  $("sWatch").textContent = watches.length;
+  $("sDeal").textContent = watches.filter(w => w.deal).length;
+  const last = Math.max(0, ...watches.map(w => w.checked || 0));
+  const next = last ? Math.max(0, Math.round((last + CHECK_EVERY - now) / 60e3)) : null;
+  $("sNext").textContent = next == null ? "soon" : next <= 0 ? "now" : next + "m";
+  if (api) $("statusText").textContent = "Live · last price check " + ago(last);
+  document.title = (watches.some(w => w.deal) ? `(${watches.filter(w => w.deal).length}) ` : "") + "FlightDeals";
+
+  if (!list.length) {
+    $("list").innerHTML = `<div class="empty">${watches.length ? "Nothing matches these filters." : "No routes yet. Tap <b>＋ Watch a route</b> to add the first one."}</div>`;
+    return;
+  }
+  $("list").innerHTML = list.map(w => {
+    const u = usual(w), b = w.best || {};
+    const when = fmtDate(w.depart) + (w.ret ? " – " + fmtDate(w.ret) : " · one-way") + (w.flex ? ` (±${w.flex}d)` : "");
+    const airs = Object.entries(w.byAir || {}).slice(0, 6).map(([n, p]) => `<span class="air">${esc(n)} <b>${money(p)}</b></span>`).join("");
+    const picked = (w.airlines || []).map(airName).join(", ");
+    return `<div class="card ${w.deal ? "deal" : ""}" data-id="${esc(w.id)}">
+      <div class="top">
+        <div><div class="route">${esc(w.from)}<span class="arrow">${w.ret ? "⇄" : "→"}</span>${esc(w.to)}</div>
+          <div class="meta">${esc(when)} · ${w.adults > 1 ? w.adults + " travelers" : "1 traveler"}</div></div>
+        <div class="price">${w.price ? `<b>${money(w.price)}</b><small>${w.low && w.low < w.price ? "low " + money(w.low) : "lowest seen"}</small>` : `<small>${w.checked ? "" : "first check soon"}</small>`}</div>
+      </div>
+      <div class="badges">
+        <span class="badge cabin">${esc(CABINS[w.cabin] || w.cabin)}</span>
+        ${w.deal ? `<span class="badge good">🔥 ${esc(w.deal)}</span>` : ""}
+        ${u && w.price && w.price < u && !w.deal ? `<span class="badge">${Math.round((u - w.price) / u * 100)}% under usual</span>` : ""}
+        ${w.target ? `<span class="badge">target ${money(w.target)}</span>` : ""}
+        ${w.stops >= 0 ? `<span class="badge">${w.stops ? "≤" + w.stops + " stop" : "nonstop"}</span>` : ""}
+        ${picked ? `<span class="badge">${esc(picked)}</span>` : ""}
+        ${w.err ? `<span class="badge err">${esc(w.err)}</span>` : ""}
+      </div>
+      ${b.price ? `<div class="best">Best: <b>${esc(b.air)}</b> · ${b.stops ? b.stops + " stop" + (b.stops > 1 ? "s" : "") : "nonstop"}${b.dur ? " · " + dur(b.dur) : ""}${b.date ? " · " + esc(b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate)) : ""}</div>` : ""}
+      ${spark(w.hist)}
+      ${airs ? `<div class="airs">${airs}</div>` : ""}
+      <div class="meta" style="margin-bottom:10px">Checked ${ago(w.checked)}${w.by ? " · added by " + esc(w.by) : ""}${u ? " · usual " + money(u) : ""}</div>
+      <div class="actions">
+        ${b.url ? `<a class="btn primary small" href="${esc(b.url)}" target="_blank" rel="noopener">See flights</a>` : ""}
+        <a class="btn ghost small" href="https://ntfy.sh/${TOPIC}-${esc(w.id)}" target="_blank" rel="noopener">🔔 Alerts for this one</a>
+        <button class="btn ghost small" data-act="target">Set target</button>
+        <button class="btn ghost small" data-act="del">Remove</button>
+      </div></div>`;
+  }).join("");
+}
+
+function noticeDeals(){
+  for (const w of watches) {
+    if (!w.deal || !w.price) { delete seen[w.id]; continue; }
+    const key = w.id, prev = seen[key];
+    if (prev && prev <= w.price) continue;
+    seen[key] = w.price;
+    if (firstSnap) continue;
+    const msg = `${w.from} → ${w.to} ${CABINS[w.cabin] || ""} ${money(w.price)} · ${w.deal}`;
+    toast("🔥 " + msg);
+    document.querySelector(`.card[data-id="${CSS.escape(w.id)}"]`)?.classList.add("flash");
+    if (store.get("notif", false) && "Notification" in window && Notification.permission === "granted") {
+      try { new Notification("✈️ Flight deal", { body: msg, tag: key }); } catch {}
+    }
+  }
+  store.set("seenDeals", seen);
+}
+
+// ---------- data ----------
+async function connect(){
+  const [{ initializeApp }, fs] = await Promise.all([import(FB + "firebase-app.js"), import(FB + "firebase-firestore.js")]);
+  const db = fs.getFirestore(initializeApp(CONFIG));
+  const col = fs.collection(db, COLL);
+  api = {
+    add: data => fs.addDoc(col, data),
+    update: (id, data) => fs.updateDoc(fs.doc(db, COLL, id), data),
+    remove: id => fs.deleteDoc(fs.doc(db, COLL, id)),
+  };
+  fs.onSnapshot(col, snap => {
+    watches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    $("dot").classList.remove("off");
+    render(); noticeDeals(); firstSnap = false;
+  }, err => {
+    console.warn("snapshot error", err);
+    $("dot").classList.add("off");
+    $("statusText").textContent = "Can't reach the database: " + (err.code || err.message);
+    $("list").innerHTML = `<div class="empty">Couldn't load watches (${esc(err.code || err.message)}).</div>`;
+  });
+}
+
+// ---------- form ----------
+function openSheet(){
+  $("formErr").textContent = "";
+  $("fBy").value = store.get("name", "");
+  const d = new Date(Date.now() + 30 * 864e5);
+  if (!$("fDep").value) $("fDep").value = d.toISOString().slice(0, 10);
+  $("fDep").min = $("fRet").min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  $("sheet").classList.add("open");
+}
+function closeSheet(){ $("sheet").classList.remove("open"); }
+
+async function saveWatch(){
+  const from = $("fFrom").value.trim().toUpperCase().slice(0, 3), to = $("fTo").value.trim().toUpperCase().slice(0, 3);
+  const depart = $("fDep").value, ret = $("fRet").value;
+  const err = m => { $("formErr").textContent = m; };
+  if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) return err("Use 3-letter airport codes, like JFK and CDG.");
+  if (from === to) return err("From and To are the same.");
+  if (!depart || depart <= new Date().toISOString().slice(0, 10)) return err("Pick a departure date in the future.");
+  if (ret && ret < depart) return err("Return must be after departure.");
+  const name = $("fBy").value.trim().slice(0, 30);
+  store.set("name", name);
+  const doc = {
+    from, to, depart, ret: ret || "", flex: +$("fFlex").value, cabin: $("fCabin").value,
+    airlines: [...document.querySelectorAll("#airPick .chip.on")].map(c => c.dataset.code),
+    stops: +$("fStops").value, target: Math.max(0, Math.round(+$("fTarget").value || 0)),
+    adults: +$("fAdults").value, by: name, created: Date.now(),
+  };
+  $("saveBtn").disabled = true;
+  try {
+    await api.add(doc);
+    closeSheet(); toast("Watching " + from + " → " + to + ". First prices within ~30 min.");
+    $("fFrom").value = $("fTo").value = $("fTarget").value = "";
+  } catch (e) { err("Couldn't save: " + (e.code || e.message)); }
+  finally { $("saveBtn").disabled = false; }
+}
+
+// ---------- wiring ----------
+$("topicName").textContent = TOPIC;
+$("ntfyLink").href = "https://ntfy.sh/" + TOPIC;
+$("airports").innerHTML = AIRPORTS.map(a => `<option value="${a.slice(0, 3)}">${esc(a.slice(4))}</option>`).join("");
+$("airPick").innerHTML = AIRLINES.map(([c, n]) => `<button type="button" class="chip" data-code="${c}">${esc(n)}</button>`).join("");
+$("airPick").onclick = e => e.target.closest(".chip")?.classList.toggle("on");
+$("airFilter").innerHTML += AIRLINES.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
+$("airFilter").value = airF; $("sortBy").value = sortBy;
+
+function drawCabinChips(){
+  $("cabinFilters").innerHTML = [["", "All cabins"], ...Object.entries(CABINS)].map(([k, n]) =>
+    `<button class="chip ${cabinF === k ? "on" : ""}" data-k="${k}">${n}</button>`).join("");
+}
+drawCabinChips();
+$("cabinFilters").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; cabinF = c.dataset.k; store.set("cabinF", cabinF); drawCabinChips(); render(); };
+$("airFilter").onchange = e => { airF = e.target.value; store.set("airF", airF); render(); };
+$("sortBy").onchange = e => { sortBy = e.target.value; store.set("sortBy", sortBy); render(); };
+$("addBtn").onclick = () => api ? openSheet() : toast("Still connecting…");
+$("cancelBtn").onclick = closeSheet;
+$("sheet").onclick = e => { if (e.target === $("sheet")) closeSheet(); };
+$("saveBtn").onclick = saveWatch;
+$("fFrom").oninput = $("fTo").oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ""); };
+
+$("list").onclick = async e => {
+  const btn = e.target.closest("button[data-act]"); if (!btn) return;
+  const id = btn.closest(".card").dataset.id, w = watches.find(x => x.id === id); if (!w) return;
+  try {
+    if (btn.dataset.act === "del") {
+      if (confirm(`Stop watching ${w.from} → ${w.to}? This removes it for everyone.`)) await api.remove(id);
+    } else {
+      const v = prompt("Alert when the price drops under (USD, 0 = off):", w.target || "");
+      if (v !== null && !isNaN(+v)) await api.update(id, { target: Math.max(0, Math.round(+v)), alerted: 0 });
+    }
+  } catch (err) { toast("Couldn't save: " + (err.code || err.message)); }
+};
+
+$("shareBtn").onclick = async () => {
+  const url = location.href.split("#")[0];
+  try { if (navigator.share) return await navigator.share({ title: "FlightDeals", text: "Flight deal alerts", url }); } catch { return; }
+  try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { prompt("Copy this link:", url); }
+};
+$("copyTopic").onclick = async () => { try { await navigator.clipboard.writeText(TOPIC); toast("Copied: " + TOPIC); } catch { prompt("Channel name:", TOPIC); } };
+function drawNotifBtn(){ $("browserNotif").textContent = store.get("notif", false) ? "✓ Browser alerts on" : "Alerts in this browser"; }
+drawNotifBtn();
+$("browserNotif").onclick = async () => {
+  if (store.get("notif", false)) { store.set("notif", false); return drawNotifBtn(); }
+  if (!("Notification" in window)) return toast("This browser can't show alerts. Use the ntfy app instead.");
+  const p = await Notification.requestPermission();
+  store.set("notif", p === "granted"); drawNotifBtn();
+  toast(p === "granted" ? "You'll get alerts while this page is open" : "Alerts blocked in browser settings");
+};
+
+setInterval(render, 30e3);  // keep "x min ago" and the countdown fresh
+connect().catch(e => {
+  console.warn(e);
+  $("dot").classList.add("off");
+  $("statusText").textContent = "Offline: couldn't load the database";
+  $("list").innerHTML = `<div class="empty">Couldn't connect. Check your internet and reload.</div>`;
+});
+</script>
+</body>
+</html>
