@@ -164,7 +164,35 @@ def parse_lenient(html):
                                    carbon=CarbonEmission(typical_on_route=0, emission=0)))
             except (TypeError, IndexError, KeyError):
                 continue
+    if not out:
+        out = nearby_dates(payload[6] if len(payload) > 6 else None)
     return out
+
+
+def nearby_dates(node):
+    """When the asked-for dates have no flights, Google suggests nearby ones
+    as [depart, return, [[_, price], token]]. Use the cheapest as the result."""
+    from fast_flights.model import CarbonEmission, Flights
+    found = []
+
+    def walk(x):
+        if not isinstance(x, list):
+            return
+        if (len(x) >= 3 and isinstance(x[0], str) and len(x[0]) == 10 and x[0][4] == "-"
+                and isinstance(x[2], list) and x[2] and isinstance(x[2][0], list)
+                and len(x[2][0]) > 1 and isinstance(x[2][0][1], int)):
+            found.append((x[2][0][1], x[0], x[1] if isinstance(x[1], str) else ""))
+            return
+        for y in x:
+            walk(y)
+
+    walk(node)
+    if not found:
+        return []
+    price, dep, ret = min(found)
+    label = "Nearby dates " + dep[5:] + (" → " + ret[5:] if ret else "")
+    return [Flights(type="nearby", price=price, airlines=[label], flights=[],
+                    carbon=CarbonEmission(typical_on_route=0, emission=0))]
 
 
 def summarize(results):
