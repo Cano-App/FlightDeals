@@ -26,9 +26,18 @@ COLLECTION = "flightwatches"
 FS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
 APP_URL = "https://cano-app.github.io/FlightDeals/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "cano-flightdeals-x7k2")
-MAX_SEARCHES = 150  # per run, keeps us polite to Google and under the job timeout
+NEWS = "flightnews"
+MAX_SEARCHES = 160  # per run, keeps us polite to Google and under the job timeout
+PER_RUN = 3         # dates refreshed per watch per run; the rest come from the cache
+ANY_SLOTS = 13      # "anytime" watches cover a departure every 2 weeks for ~6 months
+FRESH_MS = 36 * 3600e3  # cached prices older than this are dropped
 HIST_LEN = 60
 CABINS = {"economy", "premium-economy", "business", "first"}
+FEEDS = [("Secret Flying", "https://www.secretflying.com/feed/"),
+         ("The Flight Deal", "https://www.theflightdeal.com/feed/"),
+         ("Fly4free", "https://www.fly4free.com/feed/")]
+NEWS_WORDS = ["Lagos", "Nigeria", "Houston", "Denver", "San Antonio", "Texas", "Colorado",
+              "IAH", "Hobby"]
 
 
 # ---------- Firestore REST (values <-> python) ----------
@@ -145,7 +154,20 @@ def fmt_time(sd):
 
 
 def date_pairs(w, today):
-    """Departure/return dates to try, shifting both by the flex window."""
+    """Every departure/return pair this watch covers, soonest first.
+
+    Exact mode: the chosen dates shifted by the flex window.
+    Anytime mode: a departure every 2 weeks for the next 6 months, with a
+    trip length of `nights` (0 = one-way).
+    """
+    pairs = []
+    if w.get("any"):
+        nights = max(0, min(30, int(w.get("nights", 0))))
+        for k in range(1, ANY_SLOTS + 1):
+            d = today + timedelta(days=14 * k - 7)
+            r = d + timedelta(days=nights) if nights else None
+            pairs.append((d.isoformat(), r.isoformat() if r else ""))
+        return pairs
     try:
         dep0 = date.fromisoformat(w["depart"])
     except (KeyError, ValueError):
@@ -157,8 +179,7 @@ def date_pairs(w, today):
         except ValueError:
             ret0 = None
     flex = max(0, min(3, int(w.get("flex", 0))))
-    pairs = []
-    for s in sorted(range(-flex, flex + 1), key=abs):
+    for s in range(-flex, flex + 1):
         d = dep0 + timedelta(days=s)
         r = ret0 + timedelta(days=s) if ret0 else None
         if d > today:
@@ -182,32 +203,40 @@ def deal_reason(price, w, hist):
     return ""
 
 
-def notify(w, price, reason, best):
-    route = f"{w['from']} → {w['to']}"
-    cabin = w.get("cabin", "economy").replace("-", " ").title()
-    title = f"✈️ ${price:,} {route} {cabin}"
-    when = w["depart"] + (f" – {w['ret']}" if w.get("ret") else " one-way")
-    body = f"{reason}\n{best.get('air', '')} · {best.get('date') or when}"
-    for topic in (NTFY_TOPIC, f"{NTFY_TOPIC}-{w['_id']}"):
+def push(topics, title, body, click):
+    for topic in topics:
         try:
             http("POST", "https://ntfy.sh/", {
                 "topic": topic, "title": title, "message": body, "priority": 4,
-                "tags": ["moneybag"], "click": best.get("url") or APP_URL,
+                "tags": ["moneybag"], "click": click or APP_URL,
                 "actions": [{"action": "view", "label": "Open FlightDeals", "url": APP_URL}],
             })
         except Exception as e:
             print("  ntfy failed:", e)
 
 
+def notify(w, price, reason, best):
+    route = f"{w['from']} → {w['to']}"
+    cabin = w.get("cabin", "economy").replace("-", " ").title()
+    body = f"{reason}\n{best.get('air', '')} · {best.get('date', '')}"
+    push((NTFY_TOPIC, f"{NTFY_TOPIC}-{w['_id']}"), f"✈️ ${price:,} {route} {cabin}", body, best.get("url"))
+
+
 def check_watch(w, budget, now_ms, today):
+    """Refresh the stalest few dates of a watch, then rate the cheapest fresh one."""
     pairs = date_pairs(w, today)
     if not pairs:
         save(w["_id"], {"checked": now_ms, "err": "Dates have passed", "deal": ""})
         return 0
     if w.get("cabin") not in CABINS:
         w["cabin"] = "economy"
-    best_overall, by_air, used, errors = None, {}, 0, []
-    for dep, ret in pairs[:budget]:
+    keys = [f"{d}|{r}" for d, r in pairs]
+    old = w.get("cal") or {}
+    cal = {k: old[k] for k in keys if k in old and now_ms - old[k].get("t", 0) < FRESH_MS}
+    stale = sorted(keys, key=lambda k: cal.get(k, {}).get("t", 0))[:min(PER_RUN, budget)]
+    used, errors = 0, []
+    for key in stale:
+        dep, ret = key.split("|")
         used += 1
         try:
             results, url = search(w, dep, ret)
@@ -216,59 +245,114 @@ def check_watch(w, budget, now_ms, today):
             print(f"  {dep} failed: {e!r}"[:300])
             continue
         best, air = summarize(results)
-        for k, v in air.items():
-            by_air[k] = min(by_air.get(k, v), v)
-        if best and (best_overall is None or best.price < best_overall["price"]):
+        if best:
             leg = best.flights
-            best_overall = {
-                "price": best.price, "date": dep + (f" → {ret}" if ret else ""),
-                "air": ", ".join(best.airlines[:3]), "stops": max(0, len(leg) - 1),
-                "dur": sum(s.duration or 0 for s in leg),
-                "dep": fmt_time(leg[0].departure) if leg else "",
-                "arr": fmt_time(leg[-1].arrival) if leg else "", "url": url,
-            }
-        time.sleep(random.uniform(1.5, 3.5))
+            cal[key] = {"t": now_ms, "p": best.price, "air": ", ".join(best.airlines[:3]),
+                        "stops": max(0, len(leg) - 1), "dur": sum(s.duration or 0 for s in leg),
+                        "url": url, "by": dict(sorted(air.items(), key=lambda kv: kv[1])[:6])}
+        else:
+            cal.pop(key, None)
+        time.sleep(random.uniform(1.0, 2.5))
 
-    fields = {"checked": now_ms}
-    if best_overall is None:
+    fields = {"checked": now_ms, "cal": cal}
+    if not cal:
         fields["err"] = ("Search failed: " + "; ".join(errors))[:200] if errors else "No flights found"
         fields["deal"] = ""
         save(w["_id"], fields)
         return used
 
-    price = best_overall["price"]
+    key, c = min(cal.items(), key=lambda kv: kv[1]["p"])
+    dep, ret = key.split("|")
+    price = c["p"]
+    best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"],
+            "stops": c["stops"], "dur": c["dur"], "url": c["url"]}
+    by_air = {}
+    for e in cal.values():
+        for k, v in (e.get("by") or {}).items():
+            by_air[k] = min(by_air.get(k, v), v)
     hist = (w.get("hist") or [])[-(HIST_LEN - 1):] + [{"t": now_ms, "p": price}]
     reason = deal_reason(price, w, hist)
-    low = min([price] + [h["p"] for h in hist if h.get("p")])
     fields.update({
-        "price": price, "low": low, "hist": hist, "best": best_overall,
-        "byAir": dict(sorted(by_air.items(), key=lambda kv: kv[1])[:12]),
-        "deal": reason, "err": "",
+        "price": price, "low": min(h["p"] for h in hist if h.get("p")), "hist": hist, "best": best,
+        "byAir": dict(sorted(by_air.items(), key=lambda kv: kv[1])[:8]), "deal": reason, "err": "",
     })
     alerted = w.get("alerted") or 0
     if reason and (not alerted or price < alerted):
-        notify(w, price, reason, best_overall)
+        notify(w, price, reason, best)
         fields["alerted"] = price
+        fields["dealAt"] = now_ms
     elif not reason:
         fields["alerted"] = 0
     save(w["_id"], fields)
-    print(f"  ${price} {best_overall['air']} {reason}")
+    print(f"  ${price} {best['air']} {best['date']} {reason}")
     return used
+
+
+# ---------- deal-site feeds (mistake fares, flash sales) ----------
+
+def check_news(now_ms):
+    import hashlib
+    import re
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
+    words = re.compile(r"\b(" + "|".join(NEWS_WORDS) + r")\b", re.I)
+    for src, url in FEEDS:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 FlightDeals"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                root = ET.fromstring(r.read())
+        except Exception as e:
+            print(f"feed {src} failed: {e!r}"[:200])
+            continue
+        items = root.findall(".//item")
+        print(f"feed {src}: {len(items)} items")
+        for it in items[:40]:
+            title = (it.findtext("title") or "").strip()
+            link = (it.findtext("link") or "").strip()
+            hits = sorted({m.lower() for m in words.findall(title)})
+            if not hits or not link.startswith("http"):
+                continue
+            try:
+                t = int(parsedate_to_datetime(it.findtext("pubDate")).timestamp() * 1000)
+            except Exception:
+                t = now_ms
+            doc_id = hashlib.sha1(link.encode()).hexdigest()[:20]
+            try:
+                http("POST", f"{FS}/{NEWS}?documentId={doc_id}&key={API_KEY}", {"fields": {
+                    "title": to_fs(title[:300]), "link": to_fs(link[:500]), "src": to_fs(src),
+                    "t": to_fs(t), "tags": to_fs(hits[:8])}})
+            except urllib.error.HTTPError as e:
+                if e.code != 409:  # 409 = already saved earlier
+                    print("  news save failed:", e.code)
+                continue
+            print("  news:", title[:90])
+            if now_ms - t < 2 * 86400e3:
+                push((NTFY_TOPIC,), f"🔥 {src}: {title[:80]}", title, link)
 
 
 def demo():
     today = date.today()
-    w = {"from": "JFK", "to": "CDG", "depart": (today + timedelta(days=45)).isoformat(),
-         "ret": (today + timedelta(days=52)).isoformat(), "cabin": "business",
-         "airlines": ["DL", "AF", "KL"], "stops": -1}
-    for cabin in ("economy", "business"):
-        w["cabin"] = cabin
-        results, url = search(w, w["depart"], w["ret"])
-        best, by_air = summarize(results)
-        print(cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air)
-        print(" ", url)
-        if not results:
-            sys.exit("Demo search returned nothing")
+    tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
+             ("DEN", "LON", "economy", 10), ("IAH", "PAR", "economy", 10)]
+    for frm, to, cabin, nights in tests:
+        w = {"from": frm, "to": to, "cabin": cabin, "airlines": [], "stops": -1}
+        dep = (today + timedelta(days=45)).isoformat()
+        ret = (today + timedelta(days=45 + nights)).isoformat()
+        try:
+            results, url = search(w, dep, ret)
+            best, by_air = summarize(results)
+            print(frm, to, cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air)
+        except Exception as e:
+            print(frm, to, cabin, "FAILED", repr(e)[:200])
+    for src, url in FEEDS:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 FlightDeals"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                body = r.read()
+            print("feed", src, len(body), "bytes,", body.count(b"<item"), "items")
+        except Exception as e:
+            print("feed", src, "FAILED", repr(e)[:200])
 
 
 def main():
@@ -276,6 +360,10 @@ def main():
         return demo()
     now_ms = int(time.time() * 1000)
     today = datetime.now(timezone.utc).date()
+    try:
+        check_news(now_ms)
+    except Exception as e:
+        print("news failed:", repr(e)[:300])
     watches = load_watches()
     # Least recently checked first, so a big list still rotates fairly.
     watches.sort(key=lambda w: w.get("checked") or 0)
@@ -286,7 +374,7 @@ def main():
             break
         if not all(isinstance(w.get(k), str) and len(w[k]) == 3 for k in ("from", "to")):
             continue
-        print(f"{w['from']}->{w['to']} {w.get('cabin')} {w.get('depart')}")
+        print(f"{w['from']}->{w['to']} {w.get('cabin')} {'anytime' if w.get('any') else w.get('depart')}")
         try:
             budget -= check_watch(w, budget, now_ms, today)
         except urllib.error.HTTPError as e:
