@@ -261,14 +261,16 @@ def date_pairs(w, today):
     """Every departure/return pair this watch covers, soonest first.
 
     Exact mode: the chosen dates shifted by the flex window.
-    Anytime mode: a departure every 2 weeks from 3 weeks to ~9 months out, with a
+    Anytime mode: a departure about every 2 weeks (cycling through the weekdays)
+    from 3 weeks to ~9 months out, with a
     trip length of `nights` (0 = one-way).
     """
     pairs = []
     if w.get("any"):
         nights = max(0, min(30, int(w.get("nights", 0))))
         for k in range(1, ANY_SLOTS + 1):
-            d = today + timedelta(days=ANY_START + 14 * (k - 1))
+            # Every 2 weeks, shifted a day each time so all 7 weekdays get checked.
+            d = today + timedelta(days=ANY_START + 14 * (k - 1) + (k - 1) % 7)
             r = d + timedelta(days=nights) if nights else None
             pairs.append((d.isoformat(), r.isoformat() if r else ""))
         return pairs

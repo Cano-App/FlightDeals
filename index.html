@@ -338,6 +338,21 @@ function tier(w){
   const label = { super: "🔥 Super deal", great: "💰 Great deal", good: "👍 Good deal" }[k];
   return { k, label, pct, save, u, under };
 }
+// Cheapest weekday to fly, from the dates the robot has priced (needs a few weekdays to say).
+function bestWeekday(w){
+  const days = {};
+  for (const [k, c] of Object.entries(w.cal || {})) {
+    const dep = (c.when && c.when[0]) || k.split("|")[0];
+    const wd = new Date(dep + "T12:00:00").getDay();
+    if (c.p && (!days[wd] || c.p < days[wd])) days[wd] = c.p;
+  }
+  const e = Object.entries(days);
+  if (e.length < 4) return null;
+  e.sort((a, b) => a[1] - b[1]);
+  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const worst = e[e.length - 1][1];
+  return { day: names[e[0][0]], price: e[0][1], save: worst - e[0][1] };
+}
 const TIER_RANK = { super: 3, great: 2, good: 1, "": 0 };
 // Same route and dates, different cabins: is the step up unusually cheap?
 function upgrades(){
@@ -453,6 +468,7 @@ function render(){
         ${w.err ? `<span class="badge err">${esc(w.err)}</span>` : ""}
       </div>
       ${b.price ? `<div class="best">Best: <b>${esc(b.air)}</b> · ${b.stops < 0 ? "airline shown on Google" : b.stops ? b.stops + " stop" + (b.stops > 1 ? "s" : "") : "nonstop"}${b.dur ? " · " + dur(b.dur) : ""}${b.date ? " · " + esc(b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate)) : ""}</div>` : ""}
+      ${(() => { const bw = w.any ? bestWeekday(w) : null; return bw ? `<div class="upg">📅 Cheapest day to fly: ${bw.day} (${money(bw.price)}${bw.save > 20 ? ", " + money(bw.save) + " less than the priciest day" : ""})</div>` : ""; })()}
       ${spark(w.hist)}
       ${airs ? `<div class="airs">${airs}</div>` : ""}
       <div class="meta" style="margin-bottom:10px">Checked ${ago(w.checked)}${w.by ? " · added by " + esc(w.by) : ""}${u ? " · usually " + money(u) : ""}</div>
