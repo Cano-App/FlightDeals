@@ -27,7 +27,8 @@ FS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default
 APP_URL = "https://cano-app.github.io/FlightDeals/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "cano-flightdeals-x7k2")
 NEWS = "flightnews"
-MAX_SEARCHES = 60   # per run (runs every 5 min), keeps us polite to Google
+MAX_SEARCHES = 80   # per full pass; enough for every watch, still polite to Google
+STAY_ON = 9 * 60    # after the pass, keep answering "Check now" taps until this many seconds into the run
 PER_RUN = 2         # dates refreshed per watch per run; the rest come from the cache
 # Joe's airlines: Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates
 MY_AIRLINES = ["DL", "AF", "KL", "UA", "WN", "TG", "QR", "EK"]
@@ -460,7 +461,8 @@ def debug_empty(w, dep, ret):
 def main():
     if "--demo" in sys.argv:
         return demo()
-    now_ms = int(time.time() * 1000)
+    start_s = time.time()
+    now_ms = int(start_s * 1000)
     today = datetime.now(timezone.utc).date()
     try:
         check_news(now_ms)
@@ -472,10 +474,28 @@ def main():
         # 403 until the Firestore rules are published; don't fail the job over it.
         print("couldn't read watches:", e.code, e.read()[:200])
         return
-    # Least recently checked first, so a big list still rotates fairly.
+    # Least recently checked first, so new routes and "Check now" taps go first.
     watches.sort(key=lambda w: w.get("checked") or 0)
     print(f"{len(watches)} watches")
-    budget = MAX_SEARCHES
+    run_pass(watches, MAX_SEARCHES, now_ms, today)
+
+    # GitHub starts this job every 5-30 min. Until the next one, answer "Check now" taps
+    # and newly added routes (checked == 0) within about a minute.
+    tries = {}
+    while time.time() - start_s < STAY_ON:
+        time.sleep(30)
+        try:
+            # At most 2 tries per watch per run, so one that can't be saved doesn't loop.
+            waiting = [w for w in load_watches() if not w.get("checked") and tries.get(w["_id"], 0) < 2]
+        except urllib.error.HTTPError:
+            continue
+        for w in waiting:
+            tries[w["_id"]] = tries.get(w["_id"], 0) + 1
+        if waiting:
+            run_pass(waiting, 20, int(time.time() * 1000), datetime.now(timezone.utc).date())
+
+
+def run_pass(watches, budget, now_ms, today):
     for w in watches:
         if budget <= 0:
             break
