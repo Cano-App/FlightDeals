@@ -113,8 +113,8 @@ def save(watch_id, fields):
 # ---------- Google Flights ----------
 
 def search(w, dep, ret):
-    from fast_flights import (FlightQuery, FlightsNotFound, Passengers, create_query,
-                              fetch_flights_html, get_flights)
+    from fast_flights import FlightQuery, FlightsNotFound, Passengers, create_query, fetch_flights_html
+    from fast_flights.parser import parse
 
     airlines = w.get("airlines") or MY_AIRLINES
     legs = [FlightQuery(date=dep, from_airport=w["from"], to_airport=w["to"], airlines=airlines)]
@@ -130,14 +130,39 @@ def search(w, dep, ret):
         language="en",
         currency="USD",
     )
+    html = fetch_flights_html(q)
     try:
-        results = get_flights(q)
+        results = parse(html)
     except FlightsNotFound:
-        return [], q.url()
+        results = []
     except TypeError:
-        # The library's parser trips on some routes (blank fields); retry with a forgiving one.
-        results = parse_lenient(fetch_flights_html(q))
-    return results, q.url()
+        # The library's parser trips on some routes (blank fields); use a forgiving one.
+        results = parse_lenient(html)
+    return results, q.url(), google_usual(html)
+
+
+def google_usual(html):
+    """Google's usual price for this search: the median of the ~60-day price
+    history it sends along (payload[5]), as [[timestamp_ms, price], ...]. 0 if missing."""
+    from selectolax.lexbor import LexborHTMLParser
+    try:
+        js = LexborHTMLParser(html).css_first(r"script.ds\:1").text()
+        payload = json.loads(js.split("data:", 1)[1].rsplit(",", 1)[0])
+        prices = []
+
+        def walk(x):
+            if isinstance(x, list):
+                if (len(x) == 2 and isinstance(x[0], int) and x[0] > 1e12
+                        and isinstance(x[1], int) and x[1] > 0):
+                    prices.append(x[1])
+                else:
+                    for y in x:
+                        walk(y)
+
+        walk(payload[5])
+        return int(statistics.median(prices)) if len(prices) >= 10 else 0
+    except Exception:
+        return 0
 
 
 def parse_lenient(html):
@@ -267,11 +292,13 @@ def date_pairs(w, today):
 
 # ---------- deal logic ----------
 
-def deal_reason(price, w, hist):
+def deal_reason(price, w, hist, gusual=0):
     target = w.get("target") or 0
     prev = [h["p"] for h in hist[:-1] if h.get("p")]
     if target and price <= target:
         return f"Under your ${target:,} target"
+    if gusual and price <= gusual * 0.85:
+        return f"{round(100 - price / gusual * 100)}% below Google's usual (${gusual:,})"
     if len(prev) >= 4:
         usual = statistics.median(prev[-30:])
         if price <= usual * 0.85:
@@ -318,7 +345,7 @@ def check_watch(w, budget, now_ms, today):
         dep, ret = key.split("|")
         used += 1
         try:
-            results, url = search(w, dep, ret)
+            results, url, gusual = search(w, dep, ret)
         except Exception as e:
             errors.append(f"{dep}: {type(e).__name__}")
             print(f"  {dep} failed: {e!r}"[:300])
@@ -327,7 +354,7 @@ def check_watch(w, budget, now_ms, today):
         if best:
             leg = best.flights
             when = best.type.split("|")[1:] if str(best.type).startswith("nearby|") else [dep, ret]
-            cal[key] = {"t": now_ms, "p": best.price, "when": when, "air": ", ".join(best.airlines[:3]),
+            cal[key] = {"t": now_ms, "p": best.price, "when": when, "g": gusual, "air": ", ".join(best.airlines[:3]),
                         "stops": len(leg) - 1 if leg else -1, "dur": sum(s.duration or 0 for s in leg),
                         "url": url, "by": dict(sorted(air.items(), key=lambda kv: kv[1])[:6])}
         else:
@@ -345,14 +372,14 @@ def check_watch(w, budget, now_ms, today):
     dep, ret = key.split("|")
     price = c["p"]
     dep, ret = c.get("when") or (dep, ret)
-    best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"],
+    best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"], "gusual": c.get("g", 0),
             "stops": c["stops"], "dur": c["dur"], "url": c["url"]}
     by_air = {}
     for e in cal.values():
         for k, v in (e.get("by") or {}).items():
             by_air[k] = min(by_air.get(k, v), v)
     hist = (w.get("hist") or [])[-(HIST_LEN - 1):] + [{"t": now_ms, "p": price}]
-    reason = deal_reason(price, w, hist)
+    reason = deal_reason(price, w, hist, c.get("g", 0))
     fields.update({
         "price": price, "low": min(h["p"] for h in hist if h.get("p")), "hist": hist, "best": best,
         "byAir": dict(sorted(by_air.items(), key=lambda kv: kv[1])[:8]), "deal": reason, "err": "",
@@ -446,9 +473,9 @@ def demo():
         dep = (today + timedelta(days=45)).isoformat()
         ret = (today + timedelta(days=45 + nights)).isoformat()
         try:
-            results, url = search(w, dep, ret)
+            results, url, gusual = search(w, dep, ret)
             best, by_air = summarize(results, MY_AIRLINES)
-            print(frm, to, cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air)
+            print(frm, to, cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air, "google usual:", gusual)
             if not results:
                 debug_empty(w, dep, ret)
         except Exception as e:

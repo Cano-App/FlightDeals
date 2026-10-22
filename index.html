@@ -251,7 +251,8 @@ function ago(ms){ if (!ms) return "never"; const m = Math.round((Date.now() - ms
   return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; }
 function fmtDate(s){ if (!s) return ""; const d = new Date(s + "T12:00:00"); return d.toLocaleDateString("en-US", {month:"short", day:"numeric"}); }
 function dur(min){ return min ? Math.floor(min / 60) + "h " + (min % 60 ? (min % 60) + "m" : "") : ""; }
-function usual(w){ const p = (w.hist || []).map(h => h.p).filter(Boolean); if (p.length < 3) return 0;
+function usual(w){ if (w.best && w.best.gusual) return w.best.gusual;  // Google's own ~60-day typical price
+  const p = (w.hist || []).map(h => h.p).filter(Boolean); if (p.length < 3) return 0;
   const s = [...p].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; }
 
 function spark(hist){
@@ -314,6 +315,7 @@ function render(){
         ${fresh ? `<span class="badge new">NEW</span>` : ""}
         ${w.deal ? `<span class="badge good">🔥 ${esc(w.deal)}</span>` : ""}
         ${u && w.price && w.price < u && !w.deal ? `<span class="badge">${Math.round((u - w.price) / u * 100)}% under usual</span>` : ""}
+        ${u && w.price && w.price > u * 1.1 ? `<span class="badge">${Math.round((w.price - u) / u * 100)}% above usual</span>` : ""}
         ${w.target ? `<span class="badge">target ${money(w.target)}</span>` : ""}
         ${w.stops >= 0 ? `<span class="badge">${w.stops ? "≤" + w.stops + " stop" : "nonstop"}</span>` : ""}
         ${picked ? `<span class="badge">${esc(picked)}</span>` : ""}
@@ -322,7 +324,7 @@ function render(){
       ${b.price ? `<div class="best">Best: <b>${esc(b.air)}</b> · ${b.stops < 0 ? "airline shown on Google" : b.stops ? b.stops + " stop" + (b.stops > 1 ? "s" : "") : "nonstop"}${b.dur ? " · " + dur(b.dur) : ""}${b.date ? " · " + esc(b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate)) : ""}</div>` : ""}
       ${spark(w.hist)}
       ${airs ? `<div class="airs">${airs}</div>` : ""}
-      <div class="meta" style="margin-bottom:10px">Checked ${ago(w.checked)}${w.by ? " · added by " + esc(w.by) : ""}${u ? " · usual " + money(u) : ""}</div>
+      <div class="meta" style="margin-bottom:10px">Checked ${ago(w.checked)}${w.by ? " · added by " + esc(w.by) : ""}${u ? " · usually " + money(u) : ""}</div>
       <div class="actions">
         ${b.url ? `<a class="btn primary small" href="${esc(b.url)}" target="_blank" rel="noopener">See flights</a>` : ""}
         <a class="btn ghost small" href="https://ntfy.sh/${TOPIC}-${esc(w.id)}" target="_blank" rel="noopener">🔔 Alerts for this one</a>
