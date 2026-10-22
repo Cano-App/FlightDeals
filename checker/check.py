@@ -439,6 +439,21 @@ def check_news(now_ms):
                 push((NTFY_TOPIC,), f"🔥 {src}: {title[:80]}", title, link)
 
 
+def dump_filtered():
+    """Does Google still send price history when the search is filtered to our airlines?"""
+    from fast_flights import FlightQuery, create_query, fetch_flights_html
+    from selectolax.lexbor import LexborHTMLParser
+    today = date.today()
+    dep, ret = (today + timedelta(days=60)).isoformat(), (today + timedelta(days=70)).isoformat()
+    for label, al in (("filtered", MY_AIRLINES), ("unfiltered", None)):
+        q = create_query(flights=[FlightQuery(date=dep, from_airport="IAH", to_airport="LHR", airlines=al),
+                                  FlightQuery(date=ret, from_airport="LHR", to_airport="IAH", airlines=al)],
+                         trip="round-trip", seat="economy", language="en", currency="USD")
+        html = fetch_flights_html(q)
+        payload = json.loads(LexborHTMLParser(html).css_first(r"script.ds\:1").text().split("data:", 1)[1].rsplit(",", 1)[0])
+        print(label, "usual:", google_usual(html), "| payload[5]:", json.dumps(payload[5])[:400])
+
+
 def dump_insights():
     """Print the parts of Google's answer that aren't the flight list, to find the price rating."""
     from fast_flights import FlightQuery, create_query, fetch_flights_html
@@ -464,7 +479,7 @@ def dump_insights():
 
 def demo():
     if "--insights" in sys.argv:
-        return dump_insights()
+        return dump_filtered()
     today = date.today()
     tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
              ("DEN", "LHR", "economy", 10), ("LOS", "BKK", "economy", 10), ("LOS", "BKK", "business", 10)]
