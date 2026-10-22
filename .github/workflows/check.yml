@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
 concurrency:
-  group: checker
+  group: checker-${{ inputs.demo && 'demo' || 'main' }}
   cancel-in-progress: false
 jobs:
   check:
