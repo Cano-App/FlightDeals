@@ -32,7 +32,8 @@ STAY_ON = 9 * 60    # after the pass, keep answering "Check now" taps until this
 PER_RUN = 2         # dates refreshed per watch per run; the rest come from the cache
 # Joe's airlines: Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates
 MY_AIRLINES = ["DL", "AF", "KL", "UA", "WN", "TG", "QR", "EK"]
-ANY_SLOTS = 13      # "anytime" watches cover a departure every 2 weeks for ~6 months
+ANY_START = 21      # "anytime" skips the next 3 weeks (last-minute fares are rarely deals)
+ANY_SLOTS = 19      # then a departure every 2 weeks, out to ~9 months
 FRESH_MS = 36 * 3600e3  # cached prices older than this are dropped
 HIST_LEN = 60
 CABINS = {"economy", "premium-economy", "business", "first"}
@@ -234,14 +235,14 @@ def date_pairs(w, today):
     """Every departure/return pair this watch covers, soonest first.
 
     Exact mode: the chosen dates shifted by the flex window.
-    Anytime mode: a departure every 2 weeks for the next 6 months, with a
+    Anytime mode: a departure every 2 weeks from 3 weeks to ~9 months out, with a
     trip length of `nights` (0 = one-way).
     """
     pairs = []
     if w.get("any"):
         nights = max(0, min(30, int(w.get("nights", 0))))
         for k in range(1, ANY_SLOTS + 1):
-            d = today + timedelta(days=14 * k - 7)
+            d = today + timedelta(days=ANY_START + 14 * (k - 1))
             r = d + timedelta(days=nights) if nights else None
             pairs.append((d.isoformat(), r.isoformat() if r else ""))
         return pairs
@@ -310,7 +311,8 @@ def check_watch(w, budget, now_ms, today):
     keys = [f"{d}|{r}" for d, r in pairs]
     old = w.get("cal") or {}
     cal = {k: old[k] for k in keys if k in old and now_ms - old[k].get("t", 0) < FRESH_MS}
-    stale = sorted(keys, key=lambda k: cal.get(k, {}).get("t", 0))[:min(PER_RUN, budget)]
+    # Oldest first; never-checked dates in random order so early runs sample the whole window.
+    stale = sorted(keys, key=lambda k: (cal.get(k, {}).get("t", 0), random.random()))[:min(PER_RUN, budget)]
     used, errors = 0, []
     for key in stale:
         dep, ret = key.split("|")
