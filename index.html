@@ -322,11 +322,11 @@ function defaultTarget(f, t, cabin){
   const us = ["IAH", "HOU", "DEN", "SAT"].includes(f), eu = ["CDG", "LHR"].includes(t);
   const k = cabin === "business" || cabin === "first" ? 2 : cabin === "premium-economy" ? 1 : 0;
   const pick = (e, p, b) => [e, p, b][k];
-  if (us && eu) return pick(550, 900, 2500);
-  if (us && t === "BKK") return pick(750, 1200, 3000);
-  if (us && t === "LOS") return pick(900, 1500, 3500);
-  if (f === "LOS" && eu) return pick(650, 1000, 2500);
-  if (f === "LOS") return pick(850, 1400, 3000);
+  if (us && eu) return pick(550, 1500, 2500);
+  if (us && t === "BKK") return pick(750, 1700, 3000);
+  if (us && t === "LOS") return pick(900, 2000, 3500);
+  if (f === "LOS" && eu) return pick(650, 1500, 2500);
+  if (f === "LOS") return pick(850, 1800, 3000);
   return 0;
 }
 function tier(w){
