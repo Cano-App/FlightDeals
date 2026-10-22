@@ -410,7 +410,32 @@ def check_news(now_ms):
                 push((NTFY_TOPIC,), f"🔥 {src}: {title[:80]}", title, link)
 
 
+def dump_insights():
+    """Print the parts of Google's answer that aren't the flight list, to find the price rating."""
+    from fast_flights import FlightQuery, create_query, fetch_flights_html
+    from selectolax.lexbor import LexborHTMLParser
+    today = date.today()
+    for frm, to in (("IAH", "LHR"), ("JFK", "CDG")):
+        dep, ret = (today + timedelta(days=60)).isoformat(), (today + timedelta(days=70)).isoformat()
+        q = create_query(flights=[FlightQuery(date=dep, from_airport=frm, to_airport=to),
+                                  FlightQuery(date=ret, from_airport=to, to_airport=frm)],
+                         trip="round-trip", seat="economy", language="en", currency="USD")
+        html = fetch_flights_html(q)
+        payload = json.loads(LexborHTMLParser(html).css_first(r"script.ds\:1").text().split("data:", 1)[1].rsplit(",", 1)[0])
+        print(frm, to, "top-level parts:", len(payload))
+        for i, part in enumerate(payload):
+            if i in (2, 3) or part is None:
+                continue
+            print(f"  [{i}]", json.dumps(part)[:700])
+        for word in ("typical", "Typical", "low for", "high for", "cheaper"):
+            k = html.find(word)
+            if k >= 0:
+                print("  html has", repr(word), "->", html[max(0, k - 200):k + 200].replace("\n", " "))
+
+
 def demo():
+    if "--insights" in sys.argv:
+        return dump_insights()
     today = date.today()
     tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
              ("DEN", "LHR", "economy", 10), ("LOS", "BKK", "economy", 10), ("LOS", "BKK", "business", 10)]

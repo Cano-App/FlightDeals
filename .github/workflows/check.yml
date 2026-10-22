@@ -21,4 +21,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install fast-flights==3.1.0 typing_extensions==4.16.0
-      - run: python checker/check.py ${{ inputs.demo && '--demo' || '' }}
+      - run: python checker/check.py ${{ inputs.demo && '--demo --insights' || '' }}
