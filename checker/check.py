@@ -196,11 +196,25 @@ def nearby_dates(node):
                     carbon=CarbonEmission(typical_on_route=0, emission=0))]
 
 
-def summarize(results):
-    """Cheapest itinerary plus cheapest price per airline."""
+# How Google Flights spells each airline (lower case, start of the name)
+AIRLINE_NAMES = {"DL": "delta", "AF": "air france", "KL": "klm", "UA": "united", "WN": "southwest",
+                 "TG": "thai", "QR": "qatar", "EK": "emirates"}
+
+
+def on_allowed(f, codes):
+    """True when every airline on the itinerary is one of the chosen ones.
+    Google's airline filter also lets in partners (Air Canada, Korean Air, ...)."""
+    if str(f.type).startswith("nearby|"):
+        return True  # Google's nearby-date hint carries no airline names
+    names = [AIRLINE_NAMES[c] for c in codes if c in AIRLINE_NAMES]
+    return bool(f.airlines) and all(any(a.lower().startswith(n) for n in names) for a in f.airlines)
+
+
+def summarize(results, codes=None):
+    """Cheapest itinerary plus cheapest price per airline, on the chosen airlines only."""
     best, by_air = None, {}
     for f in results:
-        if not f.price:
+        if not f.price or (codes and not on_allowed(f, codes)):
             continue
         name = ", ".join(f.airlines[:2]) or "?"
         by_air[name] = min(by_air.get(name, f.price), f.price)
@@ -306,7 +320,7 @@ def check_watch(w, budget, now_ms, today):
             errors.append(f"{dep}: {type(e).__name__}")
             print(f"  {dep} failed: {e!r}"[:300])
             continue
-        best, air = summarize(results)
+        best, air = summarize(results, w.get("airlines") or MY_AIRLINES)
         if best:
             leg = best.flights
             when = best.type.split("|")[1:] if str(best.type).startswith("nearby|") else [dep, ret]
@@ -319,7 +333,7 @@ def check_watch(w, budget, now_ms, today):
 
     fields = {"checked": now_ms, "cal": cal}
     if not cal:
-        fields["err"] = ("Search failed: " + "; ".join(errors))[:200] if errors else "No flights found"
+        fields["err"] = ("Search failed: " + "; ".join(errors))[:200] if errors else "No trips flown only on these airlines"
         fields["deal"] = ""
         save(w["_id"], fields)
         return used
@@ -405,7 +419,7 @@ def demo():
         ret = (today + timedelta(days=45 + nights)).isoformat()
         try:
             results, url = search(w, dep, ret)
-            best, by_air = summarize(results)
+            best, by_air = summarize(results, MY_AIRLINES)
             print(frm, to, cabin, len(results), "results; best:", best and (best.price, best.airlines), by_air)
             if not results:
                 debug_empty(w, dep, ret)
