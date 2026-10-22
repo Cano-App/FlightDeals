@@ -27,7 +27,7 @@ FS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default
 APP_URL = "https://cano-app.github.io/FlightDeals/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "cano-flightdeals-x7k2")
 NEWS = "flightnews"
-MAX_SEARCHES = 80   # per full pass; enough for every watch, still polite to Google
+MAX_SEARCHES = 100  # per full pass; enough for every watch (+1 daily usual-price lookup), still polite
 STAY_ON = 9 * 60    # after the pass, keep answering "Check now" taps until this many seconds into the run
 PER_RUN = 2         # dates refreshed per watch per run; the rest come from the cache
 # Joe's airlines: Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates
@@ -112,11 +112,12 @@ def save(watch_id, fields):
 
 # ---------- Google Flights ----------
 
-def search(w, dep, ret):
+def search(w, dep, ret, any_airline=False):
     from fast_flights import FlightQuery, FlightsNotFound, Passengers, create_query, fetch_flights_html
     from fast_flights.parser import parse
 
-    airlines = w.get("airlines") or MY_AIRLINES
+    # Google only sends its price history on searches not filtered by airline.
+    airlines = None if any_airline else (w.get("airlines") or MY_AIRLINES)
     legs = [FlightQuery(date=dep, from_airport=w["from"], to_airport=w["to"], airlines=airlines)]
     if ret:
         legs.append(FlightQuery(date=ret, from_airport=w["to"], to_airport=w["from"], airlines=airlines))
@@ -345,7 +346,7 @@ def check_watch(w, budget, now_ms, today):
         dep, ret = key.split("|")
         used += 1
         try:
-            results, url, gusual = search(w, dep, ret)
+            results, url, _ = search(w, dep, ret)
         except Exception as e:
             errors.append(f"{dep}: {type(e).__name__}")
             print(f"  {dep} failed: {e!r}"[:300])
@@ -354,12 +355,24 @@ def check_watch(w, budget, now_ms, today):
         if best:
             leg = best.flights
             when = best.type.split("|")[1:] if str(best.type).startswith("nearby|") else [dep, ret]
-            cal[key] = {"t": now_ms, "p": best.price, "when": when, "g": gusual, "air": ", ".join(best.airlines[:3]),
+            cal[key] = {"t": now_ms, "p": best.price, "when": when, "air": ", ".join(best.airlines[:3]),
                         "stops": len(leg) - 1 if leg else -1, "dur": sum(s.duration or 0 for s in leg),
                         "url": url, "by": dict(sorted(air.items(), key=lambda kv: kv[1])[:6])}
         else:
             cal.pop(key, None)
         time.sleep(random.uniform(1.0, 2.5))
+
+    # Google's usual price for the route (all airlines), refreshed once a day.
+    old_best = w.get("best") or {}
+    gusual, gusual_t = old_best.get("gusual", 0), old_best.get("gusualT", 0)
+    if now_ms - gusual_t > 24 * 3600e3 and budget - used > 0:
+        dep, ret = (stale[0] if stale else keys[0]).split("|")
+        try:
+            used += 1
+            gusual = search(w, dep, ret, any_airline=True)[2] or gusual
+            gusual_t = now_ms
+        except Exception as e:
+            print(f"  usual-price lookup failed: {e!r}"[:200])
 
     fields = {"checked": now_ms, "cal": cal}
     if not cal:
@@ -372,14 +385,15 @@ def check_watch(w, budget, now_ms, today):
     dep, ret = key.split("|")
     price = c["p"]
     dep, ret = c.get("when") or (dep, ret)
-    best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"], "gusual": c.get("g", 0),
+    best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"],
+            "gusual": gusual, "gusualT": gusual_t,
             "stops": c["stops"], "dur": c["dur"], "url": c["url"]}
     by_air = {}
     for e in cal.values():
         for k, v in (e.get("by") or {}).items():
             by_air[k] = min(by_air.get(k, v), v)
     hist = (w.get("hist") or [])[-(HIST_LEN - 1):] + [{"t": now_ms, "p": price}]
-    reason = deal_reason(price, w, hist, c.get("g", 0))
+    reason = deal_reason(price, w, hist, gusual)
     fields.update({
         "price": price, "low": min(h["p"] for h in hist if h.get("p")), "hist": hist, "best": best,
         "byAir": dict(sorted(by_air.items(), key=lambda kv: kv[1])[:8]), "deal": reason, "err": "",
