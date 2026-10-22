@@ -450,6 +450,41 @@ def check_news(now_ms):
                 push((NTFY_TOPIC,), f"🔥 {src}: {title[:80]}", title, link)
 
 
+def fetch_html_from(q, country):
+    """Like fast_flights.fetch_flights_html, but shopping as if from `country` (Google's gl=)."""
+    from primp import Client
+    client = Client(impersonate="chrome_145", impersonate_os="macos", referer=True, cookie_store=True)
+    return client.get("https://www.google.com/travel/flights", params={**q.params(), "gl": country}).text
+
+
+def test_countries():
+    """Same searches priced as if bought from different countries, all in USD."""
+    from fast_flights import FlightQuery, create_query
+    from fast_flights.parser import parse
+    today = date.today()
+    tests = [("LOS", "LHR", "economy"), ("LOS", "CDG", "economy"), ("LOS", "IAH", "economy"),
+             ("IAH", "CDG", "economy"), ("IAH", "LHR", "business"), ("IAH", "BKK", "economy")]
+    for frm, to, cabin in tests:
+        dep, ret = (today + timedelta(days=60)).isoformat(), (today + timedelta(days=70)).isoformat()
+        q = create_query(flights=[FlightQuery(date=dep, from_airport=frm, to_airport=to, airlines=MY_AIRLINES),
+                                  FlightQuery(date=ret, from_airport=to, to_airport=frm, airlines=MY_AIRLINES)],
+                         trip="round-trip", seat=cabin, language="en", currency="USD")
+        row = []
+        for gl in ("US", "NG", "GB", "FR", "TH", "AE"):
+            try:
+                html = fetch_html_from(q, gl)
+                try:
+                    res = parse(html)
+                except Exception:
+                    res = parse_lenient(html)
+                best, _ = summarize(res, MY_AIRLINES)
+                row.append(f"{gl} ${best.price} {best.airlines[0][:10]}" if best else f"{gl} -")
+            except Exception as e:
+                row.append(f"{gl} ERR {type(e).__name__}")
+            time.sleep(1.5)
+        print(frm, to, cabin, " | ".join(row))
+
+
 def dump_filtered():
     """Does Google still send price history when the search is filtered to our airlines?"""
     from fast_flights import FlightQuery, create_query, fetch_flights_html
@@ -490,7 +525,7 @@ def dump_insights():
 
 def demo():
     if "--insights" in sys.argv:
-        return dump_filtered()
+        return test_countries()
     today = date.today()
     tests = [("JFK", "CDG", "business", 7), ("LOS", "IAH", "economy", 14), ("SAT", "BKK", "business", 14),
              ("DEN", "LHR", "economy", 10), ("LOS", "BKK", "economy", 10), ("LOS", "BKK", "business", 10)]
