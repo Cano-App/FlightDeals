@@ -27,8 +27,10 @@ FS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default
 APP_URL = "https://cano-app.github.io/FlightDeals/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "cano-flightdeals-x7k2")
 NEWS = "flightnews"
-MAX_SEARCHES = 160  # per run, keeps us polite to Google and under the job timeout
-PER_RUN = 3         # dates refreshed per watch per run; the rest come from the cache
+MAX_SEARCHES = 60   # per run (runs every 5 min), keeps us polite to Google
+PER_RUN = 2         # dates refreshed per watch per run; the rest come from the cache
+# Joe's airlines: Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates
+MY_AIRLINES = ["DL", "AF", "KL", "UA", "WN", "TG", "QR", "EK"]
 ANY_SLOTS = 13      # "anytime" watches cover a departure every 2 weeks for ~6 months
 FRESH_MS = 36 * 3600e3  # cached prices older than this are dropped
 HIST_LEN = 60
@@ -112,7 +114,7 @@ def search(w, dep, ret):
     from fast_flights import (FlightQuery, FlightsNotFound, Passengers, create_query,
                               fetch_flights_html, get_flights)
 
-    airlines = w.get("airlines") or None
+    airlines = w.get("airlines") or MY_AIRLINES
     legs = [FlightQuery(date=dep, from_airport=w["from"], to_airport=w["to"], airlines=airlines)]
     if ret:
         legs.append(FlightQuery(date=ret, from_airport=w["to"], to_airport=w["from"], airlines=airlines))
@@ -258,7 +260,7 @@ def deal_reason(price, w, hist):
         usual = statistics.median(prev[-30:])
         if price <= usual * 0.85:
             return f"{round(100 - price / usual * 100)}% below usual (${round(usual):,})"
-    if len(prev) >= 2 and price < min(prev):
+    if len(prev) >= 6 and price <= min(prev) * 0.95:
         return f"New lowest price (was ${min(prev):,})"
     return ""
 

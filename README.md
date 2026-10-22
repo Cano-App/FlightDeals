@@ -3,7 +3,7 @@
 Live: https://cano-app.github.io/FlightDeals/
 
 Shared flight deal alerts. Anyone with the link can add a route (cabin, airlines, dates,
-target price, or "anytime" in the next 6 months). A GitHub Actions job checks Google Flights about every 15 minutes, which
+target price, or "anytime" in the next 6 months). A GitHub Actions job checks Google Flights about every 5 minutes (only on Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates), which
 covers Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates and most others.
 
 - **Page:** `index.html`, updates live from Firestore (`flightwatches` collection in `bananagrams-4b5f0`).

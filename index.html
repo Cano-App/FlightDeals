@@ -166,8 +166,8 @@ a{color:var(--accent)}
 
   <div id="list"><div class="empty">Loading watches…</div></div>
 
-  <div class="foot">Prices from Google Flights, which lists Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates and most other airlines.
-    Checked automatically about every 15 minutes. Prices in USD, can change before you book.</div>
+  <div class="foot">Prices from Google Flights for Delta, Air France, KLM, United, Southwest, Thai, Qatar and Emirates (the same fares as the airlines' own sites).
+    Checked automatically about every 5 minutes. Prices in USD, can change before you book.</div>
 </div>
 
 <button class="btn primary fab" id="addBtn">＋ Watch a route</button>
@@ -181,12 +181,12 @@ a{color:var(--accent)}
     </div>
     <datalist id="airports"></datalist>
     <label>When</label>
-    <div class="seg" id="modeSeg"><button type="button" class="on" data-m="any">Anytime (6 months)</button><button type="button" data-m="exact">Exact dates</button></div>
-    <div id="anyBox">
+    <div class="seg" id="modeSeg"><button type="button" class="on" data-m="exact">My dates</button><button type="button" data-m="any">Anytime (6 months)</button></div>
+    <div id="anyBox" hidden>
       <label for="fNights">Trip length</label>
       <select id="fNights"><option value="7">1 week</option><option value="10" selected>10 days</option><option value="14">2 weeks</option><option value="21">3 weeks</option><option value="0">One-way</option></select>
     </div>
-    <div id="exactBox" hidden>
+    <div id="exactBox">
       <div class="grid2">
         <div><label for="fDep">Depart</label><input id="fDep" type="date"></div>
         <div><label for="fRet">Return (blank = one-way)</label><input id="fRet" type="date"></div>
@@ -204,7 +204,7 @@ a{color:var(--accent)}
     </div>
     <label for="fTarget">Alert me under (USD total, optional)</label>
     <input id="fTarget" type="number" inputmode="numeric" min="0" placeholder="e.g. 2500">
-    <label>Airlines (none picked = all)</label>
+    <label>Airlines (tap to leave one out)</label>
     <div class="airpick" id="airPick"></div>
     <label for="fBy">Your name</label>
     <input id="fBy" maxlength="30" placeholder="Joe">
@@ -225,14 +225,12 @@ const CONFIG = { apiKey:"AIzaSyAZHx61X7Eh9rVL62N9juocoQRZbFPS4DU", authDomain:"b
 const COLL = "flightwatches";
 const TOPIC = "cano-flightdeals-x7k2";
 const NEWS = "flightnews";
-const CHECK_EVERY = 15 * 60e3;
+const CHECK_EVERY = 5 * 60e3;
 const CITY = {LOS:"Lagos",IAH:"Houston",HOU:"Houston",DEN:"Denver",SAT:"San Antonio",CDG:"Paris",ORY:"Paris",PAR:"Paris",LHR:"London",LGW:"London",LON:"London",BKK:"Bangkok"};
 const city = c => CITY[c] || c;
 
-const AIRLINES = [["DL","Delta"],["UA","United"],["AA","American"],["WN","Southwest"],["AS","Alaska"],["B6","JetBlue"],
-  ["AF","Air France"],["KL","KLM"],["LH","Lufthansa"],["BA","British Airways"],["VS","Virgin Atlantic"],["IB","Iberia"],
-  ["LX","Swiss"],["TK","Turkish"],["QR","Qatar"],["EK","Emirates"],["EY","Etihad"],["TG","Thai"],["SQ","Singapore"],
-  ["CX","Cathay Pacific"],["JL","JAL"],["NH","ANA"],["KE","Korean Air"],["QF","Qantas"],["AC","Air Canada"],["AM","Aeromexico"],["LA","LATAM"]];
+const AIRLINES = [["DL","Delta"],["AF","Air France"],["KL","KLM"],["UA","United"],["WN","Southwest"],
+  ["TG","Thai"],["QR","Qatar"],["EK","Emirates"]];
 const AIRPORTS = "ATL Atlanta,BOS Boston,ORD Chicago,DFW Dallas,DEN Denver,DTW Detroit,IAH Houston,LAS Las Vegas,LAX Los Angeles,MIA Miami,MSP Minneapolis,JFK New York JFK,EWR Newark,LGA New York LGA,MCO Orlando,PHL Philadelphia,PHX Phoenix,SFO San Francisco,SEA Seattle,IAD Washington Dulles,DCA Washington National,SAN San Diego,FLL Fort Lauderdale,HNL Honolulu,YYZ Toronto,YVR Vancouver,MEX Mexico City,CUN Cancun,LHR London Heathrow,LGW London Gatwick,CDG Paris,AMS Amsterdam,FRA Frankfurt,MUC Munich,ZRH Zurich,MAD Madrid,BCN Barcelona,FCO Rome,MXP Milan,LIS Lisbon,ATH Athens,IST Istanbul,DUB Dublin,DOH Doha,DXB Dubai,AUH Abu Dhabi,BKK Bangkok,HKT Phuket,SIN Singapore,HKG Hong Kong,NRT Tokyo Narita,HND Tokyo Haneda,ICN Seoul,SYD Sydney,MEL Melbourne,DEL Delhi,BOM Mumbai,JNB Johannesburg,CPT Cape Town,GRU Sao Paulo,EZE Buenos Aires,LIM Lima,BOG Bogota".split(",");
 const CABINS = {"economy":"Economy","premium-economy":"Premium","business":"Business","first":"First"};
 
@@ -243,7 +241,7 @@ const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == 
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 const airName = c => (AIRLINES.find(a => a[0] === c) || [c, c])[1];
 
-let watches = [], news = [], api = null, firstSnap = true, routeF = "", dateMode = "any";
+let watches = [], news = [], api = null, firstSnap = true, routeF = "", dateMode = "exact";
 let cabinF = store.get("cabinF", ""), airF = store.get("airF", ""), sortBy = store.get("sortBy", "deal");
 const seen = store.get("seenDeals", {});
 
@@ -276,7 +274,7 @@ function render(){
   $("routeBar").hidden = !routeF;
   if (routeF) { const [f, t] = routeF.split("-"); $("routeText").innerHTML = `Showing <b>${esc(city(f))} → ${esc(city(t))}</b>`; }
   let list = watches.filter(w => (!routeF || w.from + "-" + w.to === routeF) && (!cabinF || w.cabin === cabinF) &&
-    (!airF || (w.airlines || []).includes(airF) || Object.keys(w.byAir || {}).some(n => n.includes(airName(airF)))));
+    (!airF || Object.keys(w.byAir || {}).some(n => n.toLowerCase().includes(airName(airF).toLowerCase()))));
   const drop = w => { const u = usual(w); return u && w.price ? (u - w.price) / u : 0; };
   const sorters = {
     deal: (a, b) => (!!b.deal - !!a.deal) || drop(b) - drop(a) || (a.price || 1e9) - (b.price || 1e9),
@@ -304,7 +302,7 @@ function render(){
       : fmtDate(w.depart) + (w.ret ? " – " + fmtDate(w.ret) : " · one-way") + (w.flex ? ` (±${w.flex}d)` : "");
     const fresh = w.deal && w.dealAt && now - w.dealAt < 3 * 3600e3;
     const airs = Object.entries(w.byAir || {}).slice(0, 6).map(([n, p]) => `<span class="air">${esc(n)} <b>${money(p)}</b></span>`).join("");
-    const picked = (w.airlines || []).map(airName).join(", ");
+    const picked = (w.airlines || []).length && w.airlines.length < AIRLINES.length ? w.airlines.map(airName).join(", ") : "";
     return `<div class="card ${w.deal ? "deal" : ""}" data-id="${esc(w.id)}">
       <div class="top">
         <div><div class="route">${esc(w.from)}<span class="arrow">${w.ret || w.nights ? "⇄" : "→"}</span>${esc(w.to)}</div><div class="meta">${esc(city(w.from))} → ${esc(city(w.to))}</div>
@@ -328,6 +326,7 @@ function render(){
       <div class="actions">
         ${b.url ? `<a class="btn primary small" href="${esc(b.url)}" target="_blank" rel="noopener">See flights</a>` : ""}
         <a class="btn ghost small" href="https://ntfy.sh/${TOPIC}-${esc(w.id)}" target="_blank" rel="noopener">🔔 Alerts for this one</a>
+        <button class="btn ghost small" data-act="now">↻ Check now</button>
         <button class="btn ghost small" data-act="target">Set target</button>
         <button class="btn ghost small" data-act="del">Remove</button>
       </div></div>`;
@@ -423,6 +422,7 @@ async function saveWatch(){
   if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) return err("Use 3-letter airport codes, like JFK and CDG.");
   if (from === to) return err("From and To are the same.");
   if (!cabins.length) return err("Pick at least one cabin.");
+  if (!document.querySelector("#airPick .chip.on")) return err("Pick at least one airline.");
   if (!any && (!depart || depart <= new Date().toISOString().slice(0, 10))) return err("Pick a departure date in the future.");
   if (ret && ret < depart) return err("Return must be after departure.");
   const name = $("fBy").value.trim().slice(0, 30);
@@ -436,7 +436,7 @@ async function saveWatch(){
   $("saveBtn").disabled = true;
   try {
     for (const cabin of cabins) await api.add({ ...doc, cabin });
-    closeSheet(); toast("Watching " + from + " → " + to + ". First prices within ~15 min.");
+    closeSheet(); toast("Watching " + from + " → " + to + ". First prices in about 5 minutes.");
     $("fFrom").value = $("fTo").value = $("fTarget").value = "";
   } catch (e) { err("Couldn't save: " + (e.code || e.message)); }
   finally { $("saveBtn").disabled = false; }
@@ -446,7 +446,7 @@ async function saveWatch(){
 $("topicName").textContent = TOPIC;
 $("ntfyLink").href = "https://ntfy.sh/" + TOPIC;
 $("airports").innerHTML = AIRPORTS.map(a => `<option value="${a.slice(0, 3)}">${esc(a.slice(4))}</option>`).join("");
-$("airPick").innerHTML = AIRLINES.map(([c, n]) => `<button type="button" class="chip" data-code="${c}">${esc(n)}</button>`).join("");
+$("airPick").innerHTML = AIRLINES.map(([c, n]) => `<button type="button" class="chip on" data-code="${c}">${esc(n)}</button>`).join("");
 $("airPick").onclick = $("cabinPick").onclick = e => e.target.closest(".chip")?.classList.toggle("on");
 $("modeSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; dateMode = b.dataset.m;
   for (const x of $("modeSeg").children) x.classList.toggle("on", x === b);
@@ -475,7 +475,10 @@ $("list").onclick = async e => {
   const btn = e.target.closest("button[data-act]"); if (!btn) return;
   const id = btn.closest(".card").dataset.id, w = watches.find(x => x.id === id); if (!w) return;
   try {
-    if (btn.dataset.act === "del") {
+    if (btn.dataset.act === "now") {
+      await api.update(id, { checked: 0 });
+      toast("Queued. New prices in about 5 minutes.");
+    } else if (btn.dataset.act === "del") {
       if (confirm(`Stop watching ${w.from} → ${w.to}? This removes it for everyone.`)) await api.remove(id);
     } else {
       const v = prompt("Alert when the price drops under (USD, 0 = off):", w.target || "");
