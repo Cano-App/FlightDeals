@@ -362,18 +362,6 @@ def check_watch(w, budget, now_ms, today):
             cal.pop(key, None)
         time.sleep(random.uniform(1.0, 2.5))
 
-    # Google's usual price for the route (all airlines), refreshed once a day.
-    old_best = w.get("best") or {}
-    gusual, gusual_t = old_best.get("gusual", 0), old_best.get("gusualT", 0)
-    if now_ms - gusual_t > 24 * 3600e3 and budget - used > 0:
-        dep, ret = (stale[0] if stale else keys[0]).split("|")
-        try:
-            used += 1
-            gusual = search(w, dep, ret, any_airline=True)[2] or gusual
-            gusual_t = now_ms
-        except Exception as e:
-            print(f"  usual-price lookup failed: {e!r}"[:200])
-
     fields = {"checked": now_ms, "cal": cal}
     if not cal:
         fields["err"] = ("Search failed: " + "; ".join(errors))[:200] if errors else "No trips flown only on these airlines"
@@ -383,10 +371,19 @@ def check_watch(w, budget, now_ms, today):
 
     key, c = min(cal.items(), key=lambda kv: kv[1]["p"])
     dep, ret = key.split("|")
+    # Google's usual price for these same dates (all airlines; it only sends price
+    # history on unfiltered searches). Looked up at most once a day per date.
+    if now_ms - c.get("gt", 0) > 24 * 3600e3 and budget - used > 0:
+        used += 1
+        try:
+            c["g"], c["gt"] = search(w, dep, ret, any_airline=True)[2], now_ms
+        except Exception as e:
+            print(f"  usual-price lookup failed: {e!r}"[:200])
+    gusual = c.get("g", 0)
     price = c["p"]
     dep, ret = c.get("when") or (dep, ret)
     best = {"price": price, "date": dep + (f" → {ret}" if ret else ""), "air": c["air"],
-            "gusual": gusual, "gusualT": gusual_t,
+            "gusual": gusual,
             "stops": c["stops"], "dur": c["dur"], "url": c["url"]}
     by_air = {}
     for e in cal.values():
