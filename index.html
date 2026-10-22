@@ -82,7 +82,8 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
 .sheet.open{display:flex}
 .panel{background:var(--card);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
 .panel h2{margin:0 0 12px;font-size:20px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+input[type=date]{min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px}
 label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0 4px}
 .airpick{display:flex;flex-wrap:wrap;gap:6px}
 .airpick .chip{font-size:13px;padding:6px 10px}
@@ -113,6 +114,44 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10p
 .seg button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:700;padding:8px;border-radius:10px;cursor:pointer}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 .routebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 10px;font-size:14px}
+.search{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.search h2{margin:0 0 4px;font-size:18px}
+.search .grid2{margin-top:2px}
+.search label{margin-top:8px}
+.findbtn{width:100%;justify-content:center;margin-top:12px;padding:14px;font-size:16px;border-radius:14px}
+.hero{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px 6px;padding:2px 16px 10px;scrollbar-width:none}
+.hero::-webkit-scrollbar{display:none}
+.dealcard{flex:none;width:min(82vw,330px);scroll-snap-align:start;border-radius:22px;padding:16px;color:#fff;position:relative;overflow:hidden;
+  box-shadow:0 12px 30px rgba(10,15,40,.28);text-decoration:none;display:flex;flex-direction:column;gap:2px;min-height:210px}
+.dealcard::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.12)}
+.dealcard .tier{align-self:flex-start;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.22);border-radius:999px;padding:4px 10px;margin-bottom:6px}
+.dealcard .to{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1.05}
+.dealcard .from{font-size:14px;opacity:.85}
+.dealcard .bigp{font-size:40px;font-weight:900;letter-spacing:-1px;margin-top:auto;line-height:1;font-variant-numeric:tabular-nums}
+.dealcard .was{font-size:15px;opacity:.8}
+.dealcard .was s{opacity:.9}
+.dealcard .save{display:inline-block;background:#fff;color:#0b1020;font-weight:900;border-radius:10px;padding:4px 9px;font-size:14px;margin-top:6px;align-self:flex-start}
+.dealcard .sub{font-size:13px;opacity:.9;margin-top:6px}
+.dealcard .go{position:absolute;right:14px;bottom:14px;background:rgba(255,255,255,.95);color:#0b1020;font-weight:800;border-radius:12px;padding:8px 12px;font-size:14px}
+.g-CDG{background:linear-gradient(135deg,#3b5bff,#a14dff)} .g-LHR{background:linear-gradient(135deg,#c2185b,#3a1c71)}
+.g-BKK{background:linear-gradient(135deg,#ff8a00,#e52e71)} .g-LOS{background:linear-gradient(135deg,#00a86b,#0b6e4f)}
+.g-IAH{background:linear-gradient(135deg,#0093e9,#2a2a72)} .g-x{background:linear-gradient(135deg,#4b6cb7,#182848)}
+.tierbadge{font-weight:800}
+.tier-super{background:linear-gradient(90deg,#ff3d00,#ff9100)!important;color:#fff!important}
+.tier-great{background:var(--good)!important;color:#fff!important}
+.tier-good{background:var(--goodbg)!important;color:var(--good)!important}
+.card.t-super{border-color:#ff6d00;box-shadow:0 0 0 2px color-mix(in srgb,#ff6d00 40%,transparent),var(--shadow)}
+.card.t-super::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,#ff3d00,#ffc400)}
+.price s{display:block;font-size:13px;color:var(--muted)}
+.price .sv{display:block;font-size:12px;font-weight:800;color:var(--good)}
+.board td.super{background:linear-gradient(135deg,#ff3d00,#ff9100);color:#fff;box-shadow:none}
+.board td.super small{color:#fff}
+.board td.great{background:var(--good);color:#fff}
+.board td.great small{color:#fff}
+.board td.good{background:var(--goodbg);color:var(--good)}
+.board td.good small{color:var(--good)}
+.boardtabs{margin-bottom:8px}
+.upg{font-size:13px;font-weight:700;color:var(--accent2);margin:4px 0}
 .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 a{color:var(--accent)}
 </style>
@@ -132,10 +171,32 @@ a{color:var(--accent)}
   </div>
 
 
+  <div class="search">
+    <h2>🔎 Search your dates</h2>
+    <div class="grid2">
+      <div><label for="qFrom">From</label><input id="qFrom" list="airports" maxlength="3" placeholder="IAH" autocapitalize="characters" autocomplete="off"></div>
+      <div><label for="qTo">To</label><input id="qTo" list="airports" maxlength="3" placeholder="CDG" autocapitalize="characters" autocomplete="off"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="qDep">Depart</label><input id="qDep" type="date"></div>
+      <div><label for="qRet">Return</label><input id="qRet" type="date"></div>
+    </div>
+    <label>Cabin</label>
+    <div class="seg" id="qCabin"><button type="button" class="on" data-c="all">All 3</button><button type="button" data-c="economy">Economy</button><button type="button" data-c="premium-economy">Premium</button><button type="button" data-c="business">Business</button></div>
+    <button class="btn primary findbtn" id="qGo">Find prices</button>
+    <div class="formerr" id="qErr"></div>
+  </div>
+
+  <div id="topWrap" hidden>
+    <div class="sec" id="topTitle">🔥 Top deals right now</div>
+    <div class="hero" id="hero"></div>
+  </div>
+
   <div id="boardWrap" hidden>
     <div class="sec">Deal board</div>
+    <div class="seg boardtabs" id="boardTabs"><button type="button" class="on" data-c="economy">Economy</button><button type="button" data-c="premium-economy">Premium</button><button type="button" data-c="business">Business</button></div>
     <div class="board" id="board"></div>
-    <div class="legend">Best round-trip price found · <b style="color:var(--good)">green</b> = deal right now · tap a square to see it</div>
+    <div class="legend">Cheapest round trip and how it compares with the usual price · <b style="color:#ff6d00">orange</b> super deal · <b style="color:var(--good)">green</b> great/good deal · tap a square for details</div>
   </div>
   <div id="newsWrap" hidden>
     <div class="sec">🔥 Hot off the press</div>
@@ -242,7 +303,7 @@ const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == 
 const airName = c => (AIRLINES.find(a => a[0] === c) || [c, c])[1];
 
 let watches = [], news = [], api = null, firstSnap = true, routeF = "", dateMode = "exact";
-let cabinF = store.get("cabinF", ""), airF = store.get("airF", ""), sortBy = store.get("sortBy", "deal");
+let boardCabin = store.get("boardCabin", "economy"), cabinF = store.get("cabinF", ""), airF = store.get("airF", ""), sortBy = store.get("sortBy", "deal");
 const seen = store.get("seenDeals", {});
 
 // ---------- small UI helpers ----------
@@ -254,6 +315,76 @@ function dur(min){ return min ? Math.floor(min / 60) + "h " + (min % 60 ? (min %
 function usual(w){ if (w.best && w.best.gusual) return w.best.gusual;  // Google's own ~60-day typical price
   const p = (w.hist || []).map(h => h.p).filter(Boolean); if (p.length < 3) return 0;
   const s = [...p].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; }
+
+const DEST_ORDER = ["CDG", "LHR", "BKK", "LOS", "IAH"];
+// Rough "this is a sale" prices (round trip, USD) for routes without their own target.
+function defaultTarget(f, t, cabin){
+  const us = ["IAH", "HOU", "DEN", "SAT"].includes(f), eu = ["CDG", "LHR"].includes(t);
+  const k = cabin === "business" || cabin === "first" ? 2 : cabin === "premium-economy" ? 1 : 0;
+  const pick = (e, p, b) => [e, p, b][k];
+  if (us && eu) return pick(550, 900, 2500);
+  if (us && t === "BKK") return pick(750, 1200, 3000);
+  if (us && t === "LOS") return pick(900, 1500, 3500);
+  if (f === "LOS" && eu) return pick(650, 1000, 2500);
+  if (f === "LOS") return pick(850, 1400, 3000);
+  return 0;
+}
+function tier(w){
+  if (!w.price) return null;
+  const u = usual(w), pct = u ? (u - w.price) / u : 0, save = u ? u - w.price : 0;
+  const under = w.target && w.price <= w.target;
+  const k = under || pct >= .30 ? "super" : pct >= .20 ? "great" : pct >= .10 ? "good" : "";
+  if (!k) return { k: "", pct, save, u };
+  const label = { super: "🔥 Super deal", great: "💰 Great deal", good: "👍 Good deal" }[k];
+  return { k, label, pct, save, u, under };
+}
+const TIER_RANK = { super: 3, great: 2, good: 1, "": 0 };
+// Same route and dates, different cabins: is the step up unusually cheap?
+function upgrades(){
+  const groups = {};
+  for (const w of watches) if (w.price) {
+    const key = w.from + w.to + (w.any ? "any" + w.nights : w.depart + w.ret);
+    (groups[key] = groups[key] || {})[w.cabin] = w;
+  }
+  const out = [];
+  for (const g of Object.values(groups)) {
+    const e = g.economy, p = g["premium-economy"], b = g.business;
+    if (e && p && p.price - e.price <= Math.max(150, e.price * .20))
+      out.push({ w: p, text: p.price <= e.price ? "Premium economy is cheaper than economy!" : `Premium economy for just ${money(p.price - e.price)} more than economy` });
+    if (e && b && b.price <= e.price * 2)
+      out.push({ w: b, text: `Business class for only ${(b.price / e.price).toFixed(1)}× the economy fare` });
+  }
+  return out;
+}
+
+function renderTop(){
+  const deals = watches.map(w => ({ w, t: tier(w) })).filter(x => x.t && x.t.k)
+    .sort((a, b) => TIER_RANK[b.t.k] - TIER_RANK[a.t.k] || b.t.pct - a.t.pct);
+  const ups = upgrades();
+  let items = [...deals.map(x => ({ w: x.w, t: x.t })), ...ups.map(u => ({ w: u.w, t: tier(u.w) || {}, up: u.text }))];
+  let title = "🔥 Top deals right now";
+  if (!items.length) {  // nothing on sale: still show the best value against the usual price
+    title = "Best value right now";
+    items = watches.map(w => ({ w, t: tier(w) })).filter(x => x.t && x.t.u).sort((a, b) => b.t.pct - a.t.pct).slice(0, 5);
+  }
+  $("topWrap").hidden = !items.length;
+  $("topTitle").textContent = title;
+  const seenIds = new Set();
+  $("hero").innerHTML = items.filter(x => !seenIds.has(x.w.id + (x.up || "")) && seenIds.add(x.w.id + (x.up || ""))).slice(0, 10).map(({ w, t, up }) => {
+    const b = w.best || {}, g = DEST_ORDER.includes(w.to) ? w.to : "x";
+    const when = b.date ? b.date.replace(/\d{4}-\d{2}-\d{2}/g, fmtDate) : "";
+    const tierTxt = up ? "⬆️ Upgrade find" : t.label || (t.pct > 0 ? `${Math.round(t.pct * 100)}% under usual` : "Best value");
+    return `<a class="dealcard g-${g}" href="${esc(b.url || "#")}" target="_blank" rel="noopener">
+      <span class="tier">${esc(tierTxt)}${w.dealAt && Date.now() - w.dealAt < 3 * 3600e3 ? " · NEW" : ""}</span>
+      <div class="to">${esc(city(w.to))}</div>
+      <div class="from">from ${esc(city(w.from))} · ${esc(CABINS[w.cabin] || w.cabin)}</div>
+      <div class="bigp">${money(w.price)}</div>
+      ${t.u && t.u > w.price ? `<div class="was">usually <s>${money(t.u)}</s></div><span class="save">SAVE ${money(t.save)} · ${Math.round(t.pct * 100)}% off</span>` : ""}
+      ${up ? `<div class="sub"><b>${esc(up)}</b></div>` : ""}
+      <div class="sub">${esc(when)}${b.air && b.air !== "Nearby dates" ? " · " + esc(b.air) : ""}</div>
+      <span class="go">Book →</span></a>`;
+  }).join("");
+}
 
 function spark(hist){
   const pts = (hist || []).filter(h => h.p).slice(-40);
@@ -271,21 +402,21 @@ function spark(hist){
 // ---------- rendering ----------
 function render(){
   const now = Date.now();
-  renderBoard();
+  renderBoard(); renderTop();
   $("routeBar").hidden = !routeF;
   if (routeF) { const [f, t] = routeF.split("-"); $("routeText").innerHTML = `Showing <b>${esc(city(f))} → ${esc(city(t))}</b>`; }
   let list = watches.filter(w => (!routeF || w.from + "-" + w.to === routeF) && (!cabinF || w.cabin === cabinF) &&
     (!airF || Object.keys(w.byAir || {}).some(n => n.toLowerCase().includes(airName(airF).toLowerCase()))));
   const drop = w => { const u = usual(w); return u && w.price ? (u - w.price) / u : 0; };
   const sorters = {
-    deal: (a, b) => (!!b.deal - !!a.deal) || drop(b) - drop(a) || (a.price || 1e9) - (b.price || 1e9),
+    deal: (a, b) => TIER_RANK[(tier(b) || {}).k || ""] - TIER_RANK[(tier(a) || {}).k || ""] || drop(b) - drop(a) || (a.price || 1e9) - (b.price || 1e9),
     price: (a, b) => (a.price || 1e9) - (b.price || 1e9),
     drop: (a, b) => drop(b) - drop(a),
     new: (a, b) => (b.created || 0) - (a.created || 0) };
   list.sort(sorters[sortBy] || sorters.deal);
 
   $("sWatch").textContent = watches.length;
-  $("sDeal").textContent = watches.filter(w => w.deal).length;
+  $("sDeal").textContent = watches.filter(w => (tier(w) || {}).k).length;
   const last = Math.max(0, ...watches.map(w => w.checked || 0));
   const next = last ? Math.max(0, Math.round((last + CHECK_EVERY - now) / 60e3)) : null;
   const paused = last && now - last > 2 * 3600e3;
@@ -298,23 +429,23 @@ function render(){
     return;
   }
   $("list").innerHTML = list.map(w => {
-    const u = usual(w), b = w.best || {};
+    const u = usual(w), b = w.best || {}, t = tier(w) || {};
     const when = w.any ? "Anytime · " + (w.nights ? w.nights + " days" : "one-way")
       : fmtDate(w.depart) + (w.ret ? " – " + fmtDate(w.ret) : " · one-way") + (w.flex ? ` (±${w.flex}d)` : "");
     const fresh = w.deal && w.dealAt && now - w.dealAt < 3 * 3600e3;
     const airs = Object.entries(w.byAir || {}).slice(0, 6).map(([n, p]) => `<span class="air">${esc(n)} <b>${money(p)}</b></span>`).join("");
     const picked = (w.airlines || []).length && w.airlines.length < AIRLINES.length ? w.airlines.map(airName).join(", ") : "";
-    return `<div class="card ${w.deal ? "deal" : ""}" data-id="${esc(w.id)}">
+    return `<div class="card ${t.k ? "deal t-" + t.k : ""}" data-id="${esc(w.id)}">
       <div class="top">
         <div><div class="route">${esc(w.from)}<span class="arrow">${w.ret || w.nights ? "⇄" : "→"}</span>${esc(w.to)}</div><div class="meta">${esc(city(w.from))} → ${esc(city(w.to))}</div>
           <div class="meta">${esc(when)} · ${w.adults > 1 ? w.adults + " travelers" : "1 traveler"}</div></div>
-        <div class="price">${w.price ? `<b>${money(w.price)}</b><small>${w.low && w.low < w.price ? "low " + money(w.low) : "lowest seen"}</small>` : `<small>${w.checked ? "" : "first check soon"}</small>`}</div>
+        <div class="price">${w.price ? `<b>${money(w.price)}</b>${u && u > w.price ? `<s>${money(u)}</s><span class="sv">save ${money(u - w.price)}</span>` : `<small>${u ? "usually " + money(u) : "lowest seen"}</small>`}` : `<small>${w.checked ? "" : "⏳ searching… 1–5 min"}</small>`}</div>
       </div>
       <div class="badges">
         <span class="badge cabin">${esc(CABINS[w.cabin] || w.cabin)}</span>
         ${fresh ? `<span class="badge new">NEW</span>` : ""}
-        ${w.deal ? `<span class="badge good">🔥 ${esc(w.deal)}</span>` : ""}
-        ${u && w.price && w.price < u && !w.deal ? `<span class="badge">${Math.round((u - w.price) / u * 100)}% under usual</span>` : ""}
+        ${t.k ? `<span class="badge tierbadge tier-${t.k}">${t.label}${t.under ? " · under " + money(w.target) : t.pct > 0 ? " · " + Math.round(t.pct * 100) + "% off" : ""}</span>` : ""}
+        ${u && w.price && w.price < u && !t.k ? `<span class="badge">${Math.round((u - w.price) / u * 100)}% under usual</span>` : ""}
         ${u && w.price && w.price > u * 1.1 ? `<span class="badge">${Math.round((w.price - u) / u * 100)}% above usual</span>` : ""}
         ${w.target ? `<span class="badge">target ${money(w.target)}</span>` : ""}
         ${w.stops >= 0 ? `<span class="badge">${w.stops ? "≤" + w.stops + " stop" : "nonstop"}</span>` : ""}
@@ -347,12 +478,13 @@ function renderBoard(){
     if (f === t) return `<td class="none">–</td>`;
     const ws = watches.filter(w => w.from === f && w.to === t);
     if (!ws.length) return `<td class="none">·</td>`;
-    const best = c => { const p = ws.filter(w => w.cabin === c && w.price).map(w => w.price); return p.length ? Math.min(...p) : 0; };
-    const e = best("economy") || best("premium-economy"), b = best("business") || best("first");
-    const hot = ws.some(w => w.deal);
+    const cw = ws.filter(w => w.cabin === boardCabin && w.price).sort((a, b) => a.price - b.price)[0];
     const k = f + "-" + t;
     const short = n => n >= 10000 ? "$" + Math.round(n / 1000) + "k" : n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : "$" + n;
-    return `<td class="${hot ? "hot" : ""} ${routeF === k ? "sel" : ""}" data-r="${esc(k)}">${e ? `<b>${short(e)}</b>` : "<b>…</b>"}<small>${b ? "biz " + short(b) : ""}</small></td>`;
+    if (!cw) return `<td class="${routeF === k ? "sel" : ""}" data-r="${esc(k)}"><b>…</b><small></small></td>`;
+    const tt = tier(cw) || {};
+    const vs = tt.u ? (tt.pct >= 0 ? "−" : "+") + Math.abs(Math.round(tt.pct * 100)) + "%" : "";
+    return `<td class="${tt.k || ""} ${routeF === k ? "sel" : ""}" data-r="${esc(k)}"><b>${short(cw.price)}</b><small>${tt.k === "super" ? "🔥 " : ""}${vs}</small></td>`;
   };
   $("board").innerHTML = `<table><tr><th class="row">From ↓</th>${cols.map(c => `<th>${esc(city(c))}</th>`).join("")}</tr>` +
     rows.map(f => `<tr><th class="row">${esc(city(f))}</th>${cols.map(t => cell(f, t)).join("")}</tr>`).join("") + `</table>`;
@@ -437,7 +569,7 @@ async function saveWatch(){
   };
   $("saveBtn").disabled = true;
   try {
-    for (const cabin of cabins) await api.add({ ...doc, cabin });
+    for (const cabin of cabins) await api.add({ ...doc, cabin, target: doc.target || defaultTarget(from, to, cabin) });
     closeSheet(); toast("Watching " + from + " → " + to + ". First prices in about 5 minutes.");
     $("fFrom").value = $("fTo").value = $("fTarget").value = "";
   } catch (e) { err("Couldn't save: " + (e.code || e.message)); }
@@ -467,6 +599,41 @@ drawCabinChips();
 $("cabinFilters").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; cabinF = c.dataset.k; store.set("cabinF", cabinF); drawCabinChips(); render(); };
 $("airFilter").onchange = e => { airF = e.target.value; store.set("airF", airF); render(); };
 $("sortBy").onchange = e => { sortBy = e.target.value; store.set("sortBy", sortBy); render(); };
+for (const seg of ["qCabin", "boardTabs"]) $(seg).onclick = e => { const b = e.target.closest("button"); if (!b) return;
+  for (const x of $(seg).children) x.classList.toggle("on", x === b);
+  if (seg === "boardTabs") { boardCabin = b.dataset.c; store.set("boardCabin", boardCabin); render(); } };
+$("boardTabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.c === boardCabin));
+(() => { const d = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  $("qDep").value = d(45); $("qRet").value = d(55); $("qDep").min = $("qRet").min = d(1);
+  $("qFrom").value = store.get("qFrom", ""); })();
+$("qFrom").oninput = $("qTo").oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ""); };
+$("qDep").onchange = () => { if ($("qRet").value && $("qRet").value <= $("qDep").value) {
+  $("qRet").value = new Date(new Date($("qDep").value).getTime() + 10 * 864e5).toISOString().slice(0, 10); } };
+$("qGo").onclick = async () => {
+  const from = $("qFrom").value.trim().toUpperCase(), to = $("qTo").value.trim().toUpperCase();
+  const depart = $("qDep").value, ret = $("qRet").value, err = m => { $("qErr").textContent = m; };
+  if (!api) return err("Still connecting…");
+  if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) return err("Use 3-letter airport codes, like IAH and CDG.");
+  if (from === to) return err("From and To are the same.");
+  if (!depart || depart <= new Date().toISOString().slice(0, 10)) return err("Pick a departure date in the future.");
+  if (ret && ret <= depart) return err("Return must be after departure.");
+  err(""); store.set("qFrom", from);
+  const sel = $("qCabin").querySelector(".on").dataset.c;
+  const cabins = sel === "all" ? ["economy", "premium-economy", "business"] : [sel];
+  $("qGo").disabled = true;
+  try {
+    for (const cabin of cabins) {
+      const same = watches.find(w => !w.any && w.from === from && w.to === to && w.depart === depart && (w.ret || "") === ret && w.cabin === cabin);
+      if (same) await api.update(same.id, { checked: 0 });
+      else await api.add({ from, to, depart, ret, flex: 0, any: false, nights: 0, cabin, airlines: AIRLINES.map(a => a[0]),
+        stops: -1, target: defaultTarget(from, to, cabin), adults: 1, by: store.get("name", ""), created: Date.now() });
+    }
+    routeF = from + "-" + to; cabinF = ""; drawCabinChips(); render();
+    toast("Searching " + city(from) + " → " + city(to) + ". Prices in about 1–5 minutes.");
+    $("routeBar").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { err("Couldn't search: " + (e.code || e.message)); }
+  finally { $("qGo").disabled = false; }
+};
 $("addBtn").onclick = () => api ? openSheet() : toast("Still connecting…");
 $("cancelBtn").onclick = closeSheet;
 $("sheet").onclick = e => { if (e.target === $("sheet")) closeSheet(); };

@@ -27,7 +27,7 @@ FS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default
 APP_URL = "https://cano-app.github.io/FlightDeals/"
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "cano-flightdeals-x7k2")
 NEWS = "flightnews"
-MAX_SEARCHES = 100  # per full pass; enough for every watch (+1 daily usual-price lookup), still polite
+MAX_SEARCHES = 150  # per full pass; enough for every watch (+1 daily usual-price lookup), still polite
 STAY_ON = 9 * 60    # after the pass, keep answering "Check now" taps until this many seconds into the run
 PER_RUN = 2         # dates refreshed per watch per run; the rest come from the cache
 # Joe's airlines: Delta, Air France, KLM, United, Southwest, Thai, Qatar, Emirates
